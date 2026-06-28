@@ -1,0 +1,12 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "lsp": true,
+  "agent": {
+    "build": {
+      "temperature": 0.1,
+    },
+    "plan": {
+      "temperature": 0.2,
+    },
+  },
+}
