@@ -32,14 +32,16 @@ Establish the foundational infrastructure for Lumiwalls including project setup,
 ### 1. Database Migration: SQLite to Neon Postgres
 
 Update Prisma configuration:
-- [ ] Install `@prisma/adapter-neon` package (includes bundled dependencies, no separate `@neondatabase/serverless` or `ws` needed)
-- [ ] Update `prisma.config.ts` to use `DIRECT_URL` for migrations and add seed configuration (`bun prisma/seed.ts`)
-- [ ] Update `prisma/schema.prisma` - change datasource provider to `postgresql`, remove `url` property (Prisma 7 uses `prisma.config.ts` for connection)
-- [ ] Update `src/lib/env/serverEnv.ts` - add `DIRECT_URL` validation, change `DATABASE_URL` validation to accept `postgres://` URLs (remove `file:./` constraint)
-- [ ] Update `src/lib/database/dbClient.ts` to use `PrismaNeon` adapter with pooled `DATABASE_URL`
-- [ ] Configure connection pooling via Neon pooler URL (hostname contains `-pooler`)
+
+- [x] Install `@prisma/adapter-neon` package (includes bundled dependencies, no separate `@neondatabase/serverless` or `ws` needed)
+- [x] Update `prisma.config.ts` to use `DIRECT_URL` for migrations and add seed configuration (`bun prisma/seed.ts`)
+- [x] Update `prisma/schema.prisma` - change datasource provider to `postgresql`, remove `url` property (Prisma 7 uses `prisma.config.ts` for connection)
+- [x] Update `src/lib/env/serverEnv.ts` - add `DIRECT_URL` validation, change `DATABASE_URL` validation to accept `postgres://` URLs (remove `file:./` constraint)
+- [x] Update `src/lib/database/dbClient.ts` to use `PrismaNeon` adapter with pooled `DATABASE_URL`
+- [x] Configure connection pooling via Neon pooler URL (hostname contains `-pooler`)
 
 **Prisma 7 Configuration Notes:**
+
 - Generator: `provider = "prisma-client"`, `output = "../generated/prisma"` (not `prisma-client-js`)
 - Import `PrismaClient` from `@generated/prisma/client` — never from `@prisma/client`
 - `prisma.config.ts` uses `env("DIRECT_URL")` for CLI commands (migrations, studio)
@@ -49,6 +51,7 @@ Update Prisma configuration:
 ### 2. shadcn Components Installation
 
 Install missing UI components:
+
 - [ ] Input
 - [ ] Dialog
 - [ ] Sheet
@@ -61,6 +64,7 @@ Command: `bunx shadcn add <component>` for each
 ### 3. BetterAuth Configuration
 
 Create `src/lib/auth.ts` with:
+
 - [ ] Email/password authentication with auto sign-in after registration
 - [ ] Admin plugin for role-based access control
 - [ ] Prisma adapter integration (`prismaAdapter(prisma, { provider: "sqlite" })` - intentional quirk, do not "correct" this)
@@ -70,19 +74,23 @@ Create `src/lib/auth.ts` with:
 - [ ] Create `src/app/api/auth/[...all]/route.ts` catch-all handler
 
 Create `src/lib/auth-client.ts`:
+
 - [ ] Client instance with `inferAdditionalFields<typeof auth>` + `adminClient`
 
 Create `src/lib/argon2.ts`:
+
 - [ ] Password hashing functions using `@node-rs/argon2` with `BETTER_AUTH_SECRET` as pepper
 - [ ] Do not call `argon2` directly elsewhere — go through `hashPasswordFunction` / `verifyPasswordFunction`
 
 Update `src/lib/env/serverEnv.ts`:
+
 - [ ] Add `BETTER_AUTH_SECRET` (≥32 chars)
 - [ ] Add `BETTER_AUTH_URL` (production URL)
 - [ ] Add `BETTER_AUTH_ALLOWED_ORIGINS` (comma-separated, optional)
 - [ ] Add `BETTER_AUTH_TELEMETRY` (optional)
 
 Update `.env.example`:
+
 - [ ] Add `DATABASE_URL` (pooled Neon URL with `-pooler` in hostname)
 - [ ] Add `DIRECT_URL` (direct Neon URL for migrations)
 - [ ] Add `BETTER_AUTH_SECRET`
@@ -96,10 +104,12 @@ Update `.env.example`:
 ### 4. Database Schema
 
 Create initial migration with BetterAuth models:
+
 - [ ] Run `bun migrate` to generate BetterAuth tables
 - [ ] Verify Neon Postgres connection
 
 Create `prisma/seed.ts`:
+
 - [ ] Seed script that creates its own adapter+client (runs outside Next.js runtime)
 - [ ] Configure in `prisma.config.ts` as `seed: "bun prisma/seed.ts"`
 - [ ] Run with `bun seed` (which runs `prisma db seed`)
@@ -107,11 +117,13 @@ Create `prisma/seed.ts`:
 ### 5. Backblaze B2 Configuration (S3-compatible)
 
 Create `src/lib/storage/b2Client.ts`:
+
 - [ ] Configure S3 SDK v3 client for B2 compatibility
 - [ ] Set path-style URLs for B2
 - [ ] Configure endpoint, region, and credentials from env vars
 
 Update `src/lib/env/serverEnv.ts`:
+
 - [ ] Add `S3_ENDPOINT` (e.g., `https://s3.us-west-002.backblazeb2.com` or `https://s3.eu-central-003.backblazeb2.com`)
 - [ ] Add `S3_REGION` (e.g., `us-west-002` or `us-eu-central-003`)
 - [ ] Add `S3_ACCESS_KEY_ID`
@@ -121,66 +133,79 @@ Update `src/lib/env/serverEnv.ts`:
 - [ ] Add `NEXT_PUBLIC_S3_PUBLIC_URL` (optional, client-side)
 
 Update `.env.example`:
+
 - [ ] Add S3 environment variables
 
 Create `src/lib/storage/presignedUrl.ts`:
+
 - [ ] Generate presigned upload URLs with 5-minute expiry
 - [ ] Return object key for B2 path structure
 
 Create `src/lib/fileStorage.ts`:
+
 - [ ] S3 helpers for file uploads
 - [ ] Keys follow `wallpapers/{userId}/{uuid}-{name}` pattern with `thumb-` prefix for thumbnails
 
 Create `src/lib/imageProcessor.ts`:
+
 - [ ] Image processing with `sharp`
 - [ ] Used for thumbnail generation
 
 ### 6. Footer Component
 
 Create `src/components/Footer/Footer.tsx`:
+
 - [ ] Basic footer with links
 - [ ] Mobile-responsive navigation
 - [ ] Dark mode support (default `dark`, `enableSystem={false}`)
 
 Update `src/app/layout.tsx`:
+
 - [ ] Add Footer component
 - [ ] Add padding-top to account for fixed header
 
 Update `src/components/Header/Header.tsx`:
+
 - [ ] Change "NSF App" to "Lumiwalls" (project name)
 - [ ] Add auth navigation links (Sign In, Sign Up)
 
 Update `src/app/(public)/page.tsx`:
+
 - [ ] Update metadata title/description for Lumiwalls
 - [ ] Replace placeholder content with Lumiwalls landing page
 
 ### 7. Auth UI Pages
 
 Create auth pages under `src/app/(public)/`:
+
 - [ ] `src/app/(public)/sign-in/page.tsx` - Sign-in form with react-hook-form
 - [ ] `src/app/(public)/sign-up/page.tsx` - Sign-up form with react-hook-form
 - [ ] Use shadcn Input and Button components
 - [ ] Follow AGENTS.md form patterns with Controller wrapper
 
 Create `src/components/Auth/SignInForm.tsx`:
+
 - [ ] Client component with "use client"
 - [ ] useForm with zodResolver
 - [ ] Controller for each field
 - [ ] Submit handler calling auth client
 
 Create `src/components/Auth/SignUpForm.tsx`:
+
 - [ ] Client component with "use client"
 - [ ] useForm with zodResolver
 - [ ] Controller for each field
 - [ ] Submit handler calling auth client
 
 **Route Groups:**
+
 - `src/app/(public)/` - unauthenticated pages (landing, login/register)
 - `src/app/(private)/` - authenticated pages with session check in layout
 
 ### 8. Zod Schemas
 
 Create `src/lib/zodSchema.ts`:
+
 - [ ] Define auth schemas (signInSchema, signUpSchema)
 - [ ] Export both schema and inferred types per AGENTS.md pattern: `type X = z.infer<typeof xSchema>`
 - [ ] Use Zod v4 throughout (`zod`), compatible with `z.infer`, `.min()`, `.refine()`, etc.
@@ -188,6 +213,7 @@ Create `src/lib/zodSchema.ts`:
 ### 9. Route Groups and Server Actions (Future)
 
 Note for subsequent sprints:
+
 - `src/app/(public)/` - unauthenticated pages (landing, categories, wallpapers, login/register/forgot/reset). Layout wraps in `mx-auto max-w-7xl`.
 - `src/app/(private)/` - `layout.tsx` redirects to `/login` if no session. **Any page that requires auth must live under `(private)/`**.
 - `src/server/` - server actions with `"use server"` directive
@@ -236,6 +262,7 @@ Note: Prisma 7 uses `@prisma/adapter-neon` for Neon Postgres connection. Do NOT 
 A live site with working authentication, shadcn components installed, B2 storage configured, and Neon Postgres database connected.
 
 **Additional Notes:**
+
 - `next.config.ts` imports both env modules as side effects at the top for validation at load time
 - `globals.css` imports `shadcn/tailwind.css` and `tw-animate-css` (removing either breaks Base Rhea tokens or animations)
 - Images from dynamic sources (S3) use `<img>` with eslint-disable comment — not `next/image`
