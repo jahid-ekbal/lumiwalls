@@ -18,6 +18,14 @@ export const serverEnv = createEnv({
       })
       .min(1, { error: "DIRECT_URL is required" }),
     CHECKPOINT_DISABLE: z.enum(["1", "0"]).optional(),
+    BETTER_AUTH_SECRET: z
+      .string()
+      .min(32, { error: "BETTER_AUTH_SECRET must be at least 32 characters" }),
+    BETTER_AUTH_URL: z
+      .string()
+      .url({ error: "BETTER_AUTH_URL must be a valid URL" }),
+    BETTER_AUTH_ALLOWED_ORIGINS: z.string().optional(),
+    BETTER_AUTH_TELEMETRY: z.enum(["1", "0"]).optional(),
   },
   experimental__runtimeEnv: process.env,
 });
