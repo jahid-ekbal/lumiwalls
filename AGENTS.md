@@ -109,6 +109,11 @@ See existing examples under `src/components/Auth/`.
 
 - `bun.lock` is committed; Bun is the primary workflow (`bun install`, `bun <script>`). npm works (engines pin `node >=24`, `npm >=11`) but the scripts and README are written around `bun`.
 
+## Zod v4 quirks
+
+- URL validation uses the top-level `z.url()` (not `z.string().url()`). The `.string()` chain method `.url()` does not exist in v4 — use `z.url()` or `z.url().optional()` directly.
+- `z.string().url()` will fail silently at runtime (returns a type error or unexpected coercion). Always use `z.url()` for WHATWG-compatible URL validation.
+
 ## Misc
 
 - ESLint ignores: `.next/**`, `out/**`, `build/**`, `next-env.d.ts`, `generated/**`.

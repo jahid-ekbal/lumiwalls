@@ -19,13 +19,17 @@ Establish the foundational infrastructure for Lumiwalls including project setup,
 
 - ✅ Next.js 16.2 + React 19.2 initialized
 - ✅ Tailwind CSS v4 configured
-- ✅ Prisma 7 configured (SQLite adapter - needs migration to Postgres)
+- ✅ Prisma 7 configured (Neon Postgres via `@prisma/adapter-neon`)
 - ✅ shadcn/ui with base-rhea preset configured
-- ✅ Button component installed
-- ❌ Input, Dialog, Sheet, Dropdown components missing
-- ❌ BetterAuth not configured
-- ❌ Backblaze B2 not configured
+- ✅ Button, Input, Dialog, Sheet, Dropdown Menu components installed
+- ✅ BetterAuth configured (auth.ts, auth-client.ts, argon2.ts, API route, env vars)
+- ✅ Backblaze B2 configured (b2Client.ts, presignedUrl.ts, imageProcessor.ts, env vars)
 - ❌ Footer component missing
+- ❌ Auth UI pages missing (sign-in, sign-up)
+- ❌ Zod schemas for auth missing (zodSchema.ts)
+- ❌ Route groups not created ((public)/, (private)/)
+- ❌ Header still says "NSF App"
+- ❌ Landing page still placeholder
 
 ## Tasks
 

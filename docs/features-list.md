@@ -63,20 +63,26 @@ Presigned upload URLs are generated with a five-minute expiry, allowing the clie
 
 **Bucket Structure:**
 
-- Original files are stored under originals/{userId}/{wallpaperId}/{filename}.
-- Thumbnails are organized under thumbnails/{size}/{wallpaperId}.webp for small, medium, and large variants.
+- Original files are stored under wallpapers/{userId}/{uuid}-{name}.
+- Thumbnails are organized under wallpapers/{userId}/thumb-{size}-{uuid}.webp for 400px, 800px, and 1920px variants.
 
 ### Image Processing Pipeline
 
-The processing pipeline handles several steps in sequence:
+The processing pipeline handles several steps in sequence. The pipeline receives a `File` object, converts it to an `ArrayBuffer`, and passes it directly to `sharp()`.
+
+**Implemented (Sprint 0):**
 
 1. EXIF data is stripped from the original image for privacy.
-2. Image metadata (width, height) is extracted.
-3. Three WebP thumbnails are generated at 400px, 800px, and 1920px widths.
-4. Dominant colors are extracted using node-vibrant, yielding up to five hex codes.
-5. A tiny blurred placeholder is generated and encoded as a base64 data URL for Next.js image placeholders.
-6. A perceptual hash is computed using a difference hash algorithm for duplicate detection.
-7. The aspect ratio is calculated and bucketed into standard categories like 16:9, 21:9, 9:16, and 1:1.
+2. Image metadata (width, height, format, file size) is extracted.
+3. A tiny blurred placeholder (10px wide) is generated and encoded as a base64 JPEG data URL for Next.js image placeholders.
+4. The aspect ratio is calculated and bucketed into standard categories like 16:9, 21:9, 9:16, and 1:1.
+
+**Deferred to Sprint 2:**
+
+- Three WebP thumbnails at 400px, 800px, and 1920px widths.
+- Dominant color extraction using node-vibrant.
+- Perceptual hash computation for duplicate detection.
+- Uploading processed files to S3.
 
 ### Server Actions Structure
 

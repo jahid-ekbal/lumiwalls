@@ -26,6 +26,12 @@ export const serverEnv = createEnv({
       .url({ error: "BETTER_AUTH_URL must be a valid URL" }),
     BETTER_AUTH_ALLOWED_ORIGINS: z.string().optional(),
     BETTER_AUTH_TELEMETRY: z.enum(["1", "0"]).optional(),
+    S3_ENDPOINT: z.url(),
+    S3_REGION: z.string().min(1),
+    S3_ACCESS_KEY_ID: z.string().min(1),
+    S3_SECRET_ACCESS_KEY: z.string().min(1),
+    S3_BUCKET_NAME: z.string().min(1),
+    S3_PUBLIC_URL: z.url().optional(),
   },
   experimental__runtimeEnv: process.env,
 });
