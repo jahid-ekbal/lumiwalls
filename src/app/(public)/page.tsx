@@ -31,7 +31,7 @@ const HomePage = () => {
 
         <CardFooter className="flex-col gap-2">
           <div className="flex justify-center gap-1 text-sm">
-            Don't have an account?
+            Don&apos;t have an account?
             <Link
               href="/sign-up"
               className="hover:underline">
