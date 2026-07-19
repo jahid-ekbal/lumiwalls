@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import ThemeToggleButton from "../Buttons/ThemeToggleButton";
 
@@ -11,12 +12,14 @@ const Header = () => {
           <h1
             className="text-2xl font-semibold"
             aria-label="App Name">
-            NSF App
+            Lumiwalls
           </h1>
         </Link>
 
         <nav className="flex items-center gap-4">
           <Link href={"/"}>Home</Link>
+          <Link href={"/"}>Sign In</Link>
+          <Link href={"/sign-up" as Route}>Sign Up</Link>
 
           <ThemeToggleButton />
         </nav>

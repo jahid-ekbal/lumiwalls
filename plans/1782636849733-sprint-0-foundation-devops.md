@@ -24,12 +24,13 @@ Establish the foundational infrastructure for Lumiwalls including project setup,
 - ✅ Button, Input, Dialog, Sheet, Dropdown Menu components installed
 - ✅ BetterAuth configured (auth.ts, auth-client.ts, argon2.ts, API route, env vars)
 - ✅ Backblaze B2 configured (b2Client.ts, presignedUrl.ts, imageProcessor.ts, env vars)
-- ❌ Footer component missing
-- ❌ Auth UI pages missing (sign-in, sign-up)
-- ❌ Zod schemas for auth missing (zodSchema.ts)
-- ❌ Route groups not created ((public)/, (private)/)
-- ❌ Header still says "NSF App"
-- ❌ Landing page still placeholder
+- ✅ Footer component created
+- ✅ Auth UI pages created (sign-in, sign-up)
+- ✅ Zod schemas for auth created (zodSchema.ts)
+- ✅ Route group (public)/ created
+- ❌ Route group (private)/ not created
+- ✅ Header updated — "Lumiwalls" with auth nav links
+- ✅ Landing page updated with Lumiwalls branding
 
 ## Tasks
 
@@ -65,154 +66,154 @@ Command: `bunx shadcn add <component>` for each
 
 **Note:** `components.json` sets `style: "base-rhea"`, `ui` → `@/components/shadcnui`. Primitives come from `@base-ui/react` (not Radix).
 
-### 3. BetterAuth Configuration
+### 3. BetterAuth Configuration ✅
 
 Create `src/lib/auth.ts` with:
 
-- [ ] Email/password authentication with auto sign-in after registration
-- [ ] Admin plugin for role-based access control
-- [ ] Prisma adapter integration (`prismaAdapter(prisma, { provider: "sqlite" })` - intentional quirk, do not "correct" this)
-- [ ] Session configuration with secure cookies (cookie prefix `cit`)
-- [ ] `nextCookies()` plugin for Next.js integration
-- [ ] Custom password hashing with `@node-rs/argon2`
-- [ ] Create `src/app/api/auth/[...all]/route.ts` catch-all handler
+- [x] Email/password authentication with auto sign-in after registration
+- [x] Admin plugin for role-based access control
+- [x] Prisma adapter integration (`prismaAdapter(prisma, { provider: "sqlite" })` - intentional quirk, do not "correct" this)
+- [x] Session configuration with secure cookies (cookie prefix `cit`)
+- [x] `nextCookies()` plugin for Next.js integration
+- [x] Custom password hashing with `@node-rs/argon2`
+- [x] Create `src/app/api/auth/[...all]/route.ts` catch-all handler
 
 Create `src/lib/auth-client.ts`:
 
-- [ ] Client instance with `inferAdditionalFields<typeof auth>` + `adminClient`
+- [x] Client instance with `inferAdditionalFields<typeof auth>` + `adminClient`
 
 Create `src/lib/argon2.ts`:
 
-- [ ] Password hashing functions using `@node-rs/argon2` with `BETTER_AUTH_SECRET` as pepper
-- [ ] Do not call `argon2` directly elsewhere — go through `hashPasswordFunction` / `verifyPasswordFunction`
+- [x] Password hashing functions using `@node-rs/argon2` with `BETTER_AUTH_SECRET` as pepper
+- [x] Do not call `argon2` directly elsewhere — go through `hashPasswordFunction` / `verifyPasswordFunction`
 
 Update `src/lib/env/serverEnv.ts`:
 
-- [ ] Add `BETTER_AUTH_SECRET` (≥32 chars)
-- [ ] Add `BETTER_AUTH_URL` (production URL)
-- [ ] Add `BETTER_AUTH_ALLOWED_ORIGINS` (comma-separated, optional)
-- [ ] Add `BETTER_AUTH_TELEMETRY` (optional)
+- [x] Add `BETTER_AUTH_SECRET` (≥32 chars)
+- [x] Add `BETTER_AUTH_URL` (production URL)
+- [x] Add `BETTER_AUTH_ALLOWED_ORIGINS` (comma-separated, optional)
+- [x] Add `BETTER_AUTH_TELEMETRY` (optional)
 
 Update `.env.example`:
 
-- [ ] Add `DATABASE_URL` (pooled Neon URL with `-pooler` in hostname)
-- [ ] Add `DIRECT_URL` (direct Neon URL for migrations)
-- [ ] Add `BETTER_AUTH_SECRET`
-- [ ] Add `BETTER_AUTH_URL`
-- [ ] Add `BETTER_AUTH_ALLOWED_ORIGINS`
-- [ ] Add `BETTER_AUTH_TELEMETRY`
-- [ ] Add `CHECKPOINT_DISABLE=1` (silence Prisma telemetry)
-- [ ] Add S3 environment variables (endpoint, region, access key, secret, bucket name)
-- [ ] Add optional `S3_PUBLIC_URL` and `NEXT_PUBLIC_S3_PUBLIC_URL`
+- [x] Add `DATABASE_URL` (pooled Neon URL with `-pooler` in hostname)
+- [x] Add `DIRECT_URL` (direct Neon URL for migrations)
+- [x] Add `BETTER_AUTH_SECRET`
+- [x] Add `BETTER_AUTH_URL`
+- [x] Add `BETTER_AUTH_ALLOWED_ORIGINS`
+- [x] Add `BETTER_AUTH_TELEMETRY`
+- [x] Add `CHECKPOINT_DISABLE=1` (silence Prisma telemetry)
+- [x] Add S3 environment variables (endpoint, region, access key, secret, bucket name)
+- [x] Add optional `S3_PUBLIC_URL` and `NEXT_PUBLIC_S3_PUBLIC_URL`
 
-### 4. Database Schema
+### 4. Database Schema ✅
 
 Create initial migration with BetterAuth models:
 
-- [ ] Run `bun migrate` to generate BetterAuth tables
-- [ ] Verify Neon Postgres connection
+- [x] Run `bun migrate` to generate BetterAuth tables
+- [x] Verify Neon Postgres connection
 
 Create `prisma/seed.ts`:
 
-- [ ] Seed script that creates its own adapter+client (runs outside Next.js runtime)
-- [ ] Configure in `prisma.config.ts` as `seed: "bun prisma/seed.ts"`
-- [ ] Run with `bun seed` (which runs `prisma db seed`)
+- [x] Seed script that creates its own adapter+client (runs outside Next.js runtime)
+- [x] Configure in `prisma.config.ts` as `seed: "bun prisma/seed.ts"`
+- [x] Run with `bun seed` (which runs `prisma db seed`)
 
-### 5. Backblaze B2 Configuration (S3-compatible)
+### 5. Backblaze B2 Configuration (S3-compatible) ✅
 
 Create `src/lib/storage/b2Client.ts`:
 
-- [ ] Configure S3 SDK v3 client for B2 compatibility
-- [ ] Set path-style URLs for B2
-- [ ] Configure endpoint, region, and credentials from env vars
+- [x] Configure S3 SDK v3 client for B2 compatibility
+- [x] Set path-style URLs for B2
+- [x] Configure endpoint, region, and credentials from env vars
 
 Update `src/lib/env/serverEnv.ts`:
 
-- [ ] Add `S3_ENDPOINT` (e.g., `https://s3.us-west-002.backblazeb2.com` or `https://s3.eu-central-003.backblazeb2.com`)
-- [ ] Add `S3_REGION` (e.g., `us-west-002` or `us-eu-central-003`)
-- [ ] Add `S3_ACCESS_KEY_ID`
-- [ ] Add `S3_SECRET_ACCESS_KEY`
-- [ ] Add `S3_BUCKET_NAME`
-- [ ] Add `S3_PUBLIC_URL` (optional, for serving images)
-- [ ] Add `NEXT_PUBLIC_S3_PUBLIC_URL` (optional, client-side)
+- [x] Add `S3_ENDPOINT` (e.g., `https://s3.us-west-002.backblazeb2.com` or `https://s3.eu-central-003.backblazeb2.com`)
+- [x] Add `S3_REGION` (e.g., `us-west-002` or `us-eu-central-003`)
+- [x] Add `S3_ACCESS_KEY_ID`
+- [x] Add `S3_SECRET_ACCESS_KEY`
+- [x] Add `S3_BUCKET_NAME`
+- [x] Add `S3_PUBLIC_URL` (optional, for serving images)
+- [x] Add `NEXT_PUBLIC_S3_PUBLIC_URL` (optional, client-side)
 
 Update `.env.example`:
 
-- [ ] Add S3 environment variables
+- [x] Add S3 environment variables
 
 Create `src/lib/storage/presignedUrl.ts`:
 
-- [ ] Generate presigned upload URLs with 5-minute expiry
-- [ ] Return object key for B2 path structure
+- [x] Generate presigned upload URLs with 5-minute expiry
+- [x] Return object key for B2 path structure
 
 Create `src/lib/fileStorage.ts`:
 
-- [ ] S3 helpers for file uploads
-- [ ] Keys follow `wallpapers/{userId}/{uuid}-{name}` pattern with `thumb-` prefix for thumbnails
+- [x] S3 helpers for file uploads
+- [x] Keys follow `wallpapers/{userId}/{uuid}-{name}` pattern with `thumb-` prefix for thumbnails
 
 Create `src/lib/imageProcessor.ts`:
 
-- [ ] Image processing with `sharp`
-- [ ] Used for thumbnail generation
+- [x] Image processing with `sharp`
+- [x] Used for thumbnail generation
 
-### 6. Footer Component
+### 6. Footer Component ✅
 
 Create `src/components/Footer/Footer.tsx`:
 
-- [ ] Basic footer with links
-- [ ] Mobile-responsive navigation
-- [ ] Dark mode support (default `dark`, `enableSystem={false}`)
+- [x] Basic footer with links
+- [x] Mobile-responsive navigation
+- [x] Dark mode support (default `dark`, `enableSystem={false}`)
 
 Update `src/app/layout.tsx`:
 
-- [ ] Add Footer component
-- [ ] Add padding-top to account for fixed header
+- [x] Add Footer component
+- [x] Add padding-top to account for fixed header
 
 Update `src/components/Header/Header.tsx`:
 
-- [ ] Change "NSF App" to "Lumiwalls" (project name)
-- [ ] Add auth navigation links (Sign In, Sign Up)
+- [x] Change "NSF App" to "Lumiwalls" (project name)
+- [x] Add auth navigation links (Sign In, Sign Up)
 
 Update `src/app/(public)/page.tsx`:
 
-- [ ] Update metadata title/description for Lumiwalls
-- [ ] Replace placeholder content with Lumiwalls landing page
+- [x] Update metadata title/description for Lumiwalls
+- [x] Replace placeholder content with Lumiwalls landing page
 
-### 7. Auth UI Pages
+### 7. Auth UI Pages ✅
 
 Create auth pages under `src/app/(public)/`:
 
-- [ ] `src/app/(public)/sign-in/page.tsx` - Sign-in form with react-hook-form
-- [ ] `src/app/(public)/sign-up/page.tsx` - Sign-up form with react-hook-form
-- [ ] Use shadcn Input and Button components
-- [ ] Follow AGENTS.md form patterns with Controller wrapper
+- [x] `src/app/(public)/sign-in/page.tsx` - Sign-in form with react-hook-form
+- [x] `src/app/(public)/sign-up/page.tsx` - Sign-up form with react-hook-form
+- [x] Use shadcn Input and Button components
+- [x] Follow AGENTS.md form patterns with Controller wrapper
 
 Create `src/components/Auth/SignInForm.tsx`:
 
-- [ ] Client component with "use client"
-- [ ] useForm with zodResolver
-- [ ] Controller for each field
-- [ ] Submit handler calling auth client
+- [x] Client component with "use client"
+- [x] useForm with zodResolver
+- [x] Controller for each field
+- [x] Submit handler calling auth client
 
 Create `src/components/Auth/SignUpForm.tsx`:
 
-- [ ] Client component with "use client"
-- [ ] useForm with zodResolver
-- [ ] Controller for each field
-- [ ] Submit handler calling auth client
+- [x] Client component with "use client"
+- [x] useForm with zodResolver
+- [x] Controller for each field
+- [x] Submit handler calling auth client
 
 **Route Groups:**
 
 - `src/app/(public)/` - unauthenticated pages (landing, login/register)
 - `src/app/(private)/` - authenticated pages with session check in layout
 
-### 8. Zod Schemas
+### 8. Zod Schemas ✅
 
 Create `src/lib/zodSchema.ts`:
 
-- [ ] Define auth schemas (signInSchema, signUpSchema)
-- [ ] Export both schema and inferred types per AGENTS.md pattern: `type X = z.infer<typeof xSchema>`
-- [ ] Use Zod v4 throughout (`zod`), compatible with `z.infer`, `.min()`, `.refine()`, etc.
+- [x] Define auth schemas (signInSchema, signUpSchema)
+- [x] Export both schema and inferred types per AGENTS.md pattern: `type X = z.infer<typeof xSchema>`
+- [x] Use Zod v4 throughout (`zod`), compatible with `z.infer`, `.min()`, `.refine()`, etc.
 
 ### 9. Route Groups and Server Actions (Future)
 

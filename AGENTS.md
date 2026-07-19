@@ -62,8 +62,9 @@ See existing examples under `src/components/Auth/`.
 ## Verification
 
 - **Primary check**: `bun lint` — runs `eslint` with `eslint-config-next` core-web-vitals + typescript.
-- **Secondary / type gate**: `bun run build`. There is no separate `typecheck` script and no test framework; TypeScript errors surface only during the build.
-- **Full prod check**: `bun prod` — `prisma generate && eslint && next build && next start`. Use before schema or env changes.
+- **Type check**: `bun typecheck` — runs `next typegen && tsc --noEmit` for standalone type checking without a full build.
+- **Secondary / type gate**: `bun run build`. TypeScript errors also surface during the build.
+- **Full prod check**: `bun prod` — `prisma generate && eslint && next typegen && tsc --noEmit && next build && next start`. Use before schema or env changes.
 
 ## Prisma (Prisma 7, custom output)
 
@@ -113,6 +114,15 @@ See existing examples under `src/components/Auth/`.
 
 - URL validation uses the top-level `z.url()` (not `z.string().url()`). The `.string()` chain method `.url()` does not exist in v4 — use `z.url()` or `z.url().optional()` directly.
 - `z.string().url()` will fail silently at runtime (returns a type error or unexpected coercion). Always use `z.url()` for WHATWG-compatible URL validation.
+
+## typedRoutes with Next.js 16
+
+- `typedRoutes` is enabled — `Link` hrefs must be valid route strings. For routes that don't exist yet (e.g. `/privacy`, `/terms`, `/forgot-password`), cast with `as Route` (import `type { Route } from "next"`). Do **not** use `as any` or `as never`.
+- The root `/` is the sign-in page (not a marketing landing page). Sign-up is at `/sign-up`.
+
+## PrismaNeon adapter
+
+- `PrismaNeon` constructor takes `{ connectionString: string }` — not a raw string. Example: `new PrismaNeon({ connectionString: url })`.
 
 ## Misc
 
