@@ -1,16 +1,10 @@
-import Footer from "@/components/Footer/Footer";
-import Header from "@/components/Header/Header";
 import ThemeProvider from "@/components/Providers/ThemeProvider";
 import { notoSansHeading, nunitoSans } from "@/lib/fonts";
+import type { LayoutProps } from "@/lib/type";
 import { cn } from "@/lib/utils";
-import { ReactNode } from "react";
 import "./globals.css";
 
-type RootLayoutProps = Readonly<{
-  children: ReactNode;
-}>;
-
-const RootLayout = ({ children }: RootLayoutProps) => {
+const RootLayout = ({ children }: LayoutProps) => {
   return (
     <html
       lang="en"
@@ -26,11 +20,7 @@ const RootLayout = ({ children }: RootLayoutProps) => {
           attribute={"class"}
           defaultTheme="dark"
           enableSystem={false}>
-          <Header />
-
-          <main className="mx-auto max-w-7xl pt-16">{children}</main>
-
-          <Footer />
+          {children}
         </ThemeProvider>
       </body>
     </html>
