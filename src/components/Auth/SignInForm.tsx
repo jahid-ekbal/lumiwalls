@@ -41,7 +41,7 @@ const SignInForm = () => {
 
     toast.success("Welcome back!");
     reset();
-    replace("/");
+    replace("/browse");
   };
 
   return (

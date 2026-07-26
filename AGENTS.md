@@ -115,6 +115,13 @@ See existing examples under `src/components/Auth/`.
 - URL validation uses the top-level `z.url()` (not `z.string().url()`). The `.string()` chain method `.url()` does not exist in v4 — use `z.url()` or `z.url().optional()` directly.
 - `z.string().url()` will fail silently at runtime (returns a type error or unexpected coercion). Always use `z.url()` for WHATWG-compatible URL validation.
 
+## Proxy (was Middleware)
+
+- The `middleware` file convention is **deprecated** in Next.js 16. The file must be named `proxy.ts` and export a function named `proxy` (not `middleware`).
+- Proxy defaults to the Node.js runtime (Edge runtime not supported in v16 proxy).
+- `@better-fetch/fetch` is not a dependency — use native `fetch` to call `/api/auth/get-session` instead.
+- See `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md` for full docs.
+
 ## typedRoutes with Next.js 16
 
 - `typedRoutes` is enabled — `Link` hrefs must be valid route strings. For routes that don't exist yet (e.g. `/privacy`, `/terms`, `/forgot-password`), cast with `as Route` (import `type { Route } from "next"`). Do **not** use `as any` or `as never`.

@@ -1,7 +1,7 @@
 import type { LayoutProps } from "@/lib/type";
 
 const Publiclayout = ({ children }: LayoutProps) => {
-  return <main>{children}</main>;
+  return <>{children}</>;
 };
 
 export default Publiclayout;

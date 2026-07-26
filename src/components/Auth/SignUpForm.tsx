@@ -44,7 +44,7 @@ const SignUpForm = () => {
 
     toast.success("Account created successfully!");
     reset();
-    replace("/");
+    replace("/browse");
   };
 
   return (
