@@ -127,6 +127,12 @@ See existing examples under `src/components/Auth/`.
 - `typedRoutes` is enabled — `Link` hrefs must be valid route strings. For routes that don't exist yet (e.g. `/privacy`, `/terms`, `/forgot-password`), cast with `as Route` (import `type { Route } from "next"`). Do **not** use `as any` or `as never`.
 - The root `/` is the sign-in page (not a marketing landing page). Sign-up is at `/sign-up`.
 
+## Better Auth
+
+- For `providerId: "credential"` accounts, Better Auth sets `accountId = userId` (the user's own ID), **not** the email. Verified in `node_modules/better-auth/dist/api/routes/sign-up.mjs` (`accountId: createdUser.id`). Sign-in matches on `providerId === "credential"` only, so an email-based `accountId` still logs in, but it breaks any code expecting `accountId === userId`. Seed scripts must mirror this.
+- Password hashing lives in `src/lib/argon2.ts` (`hashPasswordFunction` / `verifyPasswordFunction`), wired into `auth.ts` via `emailAndPassword.password.{hash,verify}`. Always reuse these — never call `@node-rs/argon2` directly, or the hash may not verify (the secret is encoded with `TextEncoder`, not `Buffer.from`).
+- The `admin()` plugin's default roles are `"admin"` and `"user"` (`adminRoles: ["admin"]`, `defaultRole: "user"`). `role` is a plain nullable `String?` in the schema, not an enum.
+
 ## PrismaNeon adapter
 
 - `PrismaNeon` constructor takes `{ connectionString: string }` — not a raw string. Example: `new PrismaNeon({ connectionString: url })`.

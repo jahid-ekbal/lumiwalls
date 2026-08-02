@@ -1,22 +1,18 @@
+import { hashPasswordFunction } from "@/lib/argon2";
 import prisma from "@/lib/database/dbClient";
-import { serverEnv } from "@/lib/env/serverEnv";
-import { hash as argon2Hash } from "@node-rs/argon2";
 import "dotenv/config";
 
+// Dev-only seed credentials. Change these for any non-local environment
+// or remove this seed entirely before deploying to production.
 const ADMIN_EMAIL = "admin@example.com";
 const ADMIN_PASSWORD = "admin@example.com";
 
 async function main() {
   console.log("🌱 Seeding database...");
 
-  const hashedPassword = await argon2Hash(ADMIN_PASSWORD, {
-    algorithm: 2, // Argon2id
-    memoryCost: 19456,
-    timeCost: 2,
-    outputLen: 32,
-    parallelism: 1,
-    secret: Buffer.from(serverEnv.BETTER_AUTH_SECRET),
-  });
+  // Reuse the canonical hashing function from src/lib/argon2.ts so the
+  // seeded password is always verifiable by BetterAuth's verify step.
+  const hashedPassword = await hashPasswordFunction(ADMIN_PASSWORD);
 
   // Upsert the admin user
   const user = await prisma.user.upsert({
@@ -31,9 +27,11 @@ async function main() {
     },
   });
 
-  // Upsert the credential account so BetterAuth can authenticate
+  // Upsert the credential account so BetterAuth can authenticate.
+  // Better Auth sets accountId = userId for credential accounts (see its
+  // sign-up route), so we mirror that convention here.
   const existingAccount = await prisma.account.findFirst({
-    where: { providerId: "credential", accountId: ADMIN_EMAIL },
+    where: { providerId: "credential", userId: user.id },
   });
 
   if (existingAccount) {
@@ -47,17 +45,18 @@ async function main() {
         id: crypto.randomUUID(),
         userId: user.id,
         providerId: "credential",
-        accountId: ADMIN_EMAIL,
+        accountId: user.id,
         password: hashedPassword,
       },
     });
   }
 
   console.log(`✅ Seeded admin user: ${ADMIN_EMAIL}`);
-  await prisma.$disconnect();
 }
 
-main().catch((error) => {
-  console.error("❌ Seed failed:", error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error("❌ Seed failed:", error);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
