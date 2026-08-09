@@ -15,7 +15,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check session cookie directly — no self-referential fetch needed
+  // Check session cookie directly; no self-referential fetch needed
   const sessionCookie =
     request.cookies.get("cit.session_token")?.value ??
     request.cookies.get("__Secure-cit.session_token")?.value;

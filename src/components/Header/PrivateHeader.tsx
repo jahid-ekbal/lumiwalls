@@ -17,21 +17,34 @@ import {
 } from "@/components/shadcnui/dropdown-menu";
 import { SidebarTrigger } from "@/components/shadcnui/sidebar";
 import { authClient } from "@/lib/auth-client";
-import { LogOutIcon, SettingsIcon } from "lucide-react";
+import { LayoutDashboardIcon, LogOutIcon, UserIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import ThemeToggleButton from "../Buttons/ThemeToggleButton";
 
+const getInitials = (name: string) => {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+};
+
 const PrivateHeader = () => {
+  const { data: session, isPending } = authClient.useSession();
+
+  const user = session?.user;
+
   const handleSignOut = async () => {
     await authClient.signOut();
     window.location.href = "/";
   };
+
   return (
     <header className="bg-background/80 sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <SidebarTrigger />
-        <h1 className="text-lg font-semibold">Lumiwalls</h1>
       </div>
 
       <div className="flex items-center gap-2">
@@ -46,10 +59,16 @@ const PrivateHeader = () => {
                 className="h-8 w-8 rounded-full p-0">
                 <Avatar className="h-8 w-8">
                   <AvatarImage
-                    src="/placeholder.svg"
-                    alt="User avatar"
+                    src={user?.image ?? "/placeholder.svg"}
+                    alt={user?.name ?? "User avatar"}
                   />
-                  <AvatarFallback>JD</AvatarFallback>
+                  <AvatarFallback>
+                    {isPending ?
+                      ".."
+                    : user?.name ?
+                      getInitials(user.name)
+                    : "U"}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             }></DropdownMenuTrigger>
@@ -60,9 +79,11 @@ const PrivateHeader = () => {
             <DropdownMenuGroup>
               <DropdownMenuLabel>
                 <div className="flex flex-col">
-                  <span className="font-medium">John Doe</span>
+                  <span className="font-medium">
+                    {isPending ? "Loading..." : (user?.name ?? "Guest")}
+                  </span>
                   <span className="text-muted-foreground text-xs">
-                    john@example.com
+                    {user?.email ?? "Not signed in"}
                   </span>
                 </div>
               </DropdownMenuLabel>
@@ -74,14 +95,14 @@ const PrivateHeader = () => {
               <DropdownMenuItem
                 render={
                   <Link href={"/profile" as Route}>
-                    <SettingsIcon className="mr-2 h-4 w-4" />
+                    <UserIcon className="mr-2 h-4 w-4" />
                     Profile
                   </Link>
                 }></DropdownMenuItem>
               <DropdownMenuItem
                 render={
                   <Link href={"/dashboard" as Route}>
-                    <SettingsIcon className="mr-2 h-4 w-4" />
+                    <LayoutDashboardIcon className="mr-2 h-4 w-4" />
                     Dashboard
                   </Link>
                 }></DropdownMenuItem>

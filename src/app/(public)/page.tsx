@@ -1,18 +1,18 @@
 import SignInForm from "@/components/Auth/SignInForm";
+import Brand from "@/components/Brand/Brand";
 import {
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/shadcnui/card";
 import type { Route } from "next";
 import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Sign In — Lumiwalls",
+  title: "Sign In | Lumiwalls",
   description: "Sign in to your Lumiwalls account",
 };
 
@@ -21,8 +21,8 @@ const HomePage = () => {
     <section className="grid h-dvh place-items-center">
       <Card className="w-xs sm:w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">Sign In</CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
+          <Brand />
+          <CardDescription>Sign in to your Lumiwalls account</CardDescription>
         </CardHeader>
 
         <CardContent>

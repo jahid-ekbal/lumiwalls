@@ -1,17 +1,17 @@
 import SignUpForm from "@/components/Auth/SignUpForm";
+import Brand from "@/components/Brand/Brand";
 import {
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/shadcnui/card";
 import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Sign Up — Lumiwalls",
+  title: "Sign Up | Lumiwalls",
   description: "Create your Lumiwalls account",
 };
 
@@ -20,8 +20,8 @@ const SignUpPage = () => {
     <section className="grid h-dvh place-items-center">
       <Card className="w-xs sm:w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">Sign Up</CardTitle>
-          <CardDescription>Create your account</CardDescription>
+          <Brand />
+          <CardDescription>Create your Lumiwalls account</CardDescription>
         </CardHeader>
 
         <CardContent>

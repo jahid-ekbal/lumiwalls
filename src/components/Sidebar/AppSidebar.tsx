@@ -1,20 +1,30 @@
 "use client";
 
-import { CompassIcon, LayoutDashboardIcon, UploadIcon } from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
-
+import Brand from "@/components/Brand/Brand";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
   useSidebar,
 } from "@/components/shadcnui/sidebar";
+import { authClient } from "@/lib/auth-client";
+import {
+  CompassIcon,
+  LayoutDashboardIcon,
+  LogOutIcon,
+  SettingsIcon,
+  UploadIcon,
+} from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const items = [
   { title: "Browse", url: "/browse", icon: CompassIcon },
@@ -24,17 +34,21 @@ const items = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const pathname = usePathname();
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    window.location.href = "/";
+  };
 
   return (
     <Sidebar
       collapsible="icon"
       variant="inset"
-      className="z-40 border-r">
+      className="z-40">
       <SidebarHeader>
-        <div className="flex h-12 items-center gap-2 px-3">
-          {state === "expanded" ?
-            <span className="text-xl font-semibold">Lumiwalls</span>
-          : <span className="text-xl font-semibold">L</span>}
+        <div className="flex h-12 items-center px-3">
+          <Brand showText={state === "expanded"} />
         </div>
       </SidebarHeader>
 
@@ -45,6 +59,7 @@ export function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
+                    isActive={pathname === item.url}
                     render={
                       <Link href={item.url as Route}>
                         <item.icon />
@@ -59,6 +74,32 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={
+                <Link href={"/settings" as Route}>
+                  <SettingsIcon />
+                  <span>Settings</span>
+                </Link>
+              }
+              tooltip="Settings"
+            />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={handleSignOut}
+              tooltip="Sign Out">
+              <LogOutIcon />
+              <span>Sign Out</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+
+      <SidebarRail />
     </Sidebar>
   );
 }

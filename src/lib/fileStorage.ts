@@ -6,8 +6,8 @@ import { s3Client } from "./storage/b2Client";
  * Build an S3 object key following the bucket key convention.
  *
  * Convention:
- *   wallpapers/{userId}/{uuid}-{name}              — original file
- *   wallpapers/{userId}/thumb-{size}-{uuid}.webp   — thumbnail
+ *   wallpapers/{userId}/{uuid}-{name}              (original file)
+ *   wallpapers/{userId}/thumb-{size}-{uuid}.webp   (thumbnail)
  */
 export const buildKey = (
   userId: string,

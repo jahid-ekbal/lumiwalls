@@ -2,7 +2,7 @@
 
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This version has breaking changes: APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
 <!-- END:nextjs-agent-rules -->
 
@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Form Patterns
 
-Schemas in `src/lib/zodSchema.ts` — export both schema and `type X = z.infer<typeof xSchema>`.
+Schemas in `src/lib/zodSchema.ts`: export both schema and `type X = z.infer<typeof xSchema>`.
 
 Components use `"use client"`, `react-hook-form` + `@hookform/resolvers/zod`, and shadcn primitives:
 
@@ -47,7 +47,7 @@ See existing examples under `src/components/Auth/`.
 ## Agent behavior
 
 - **Ask questions.** When the request is ambiguous, when there are real implementation choices with tradeoffs, or before any non-obvious / destructive action, use the `question` tool to confirm. Prefer one short batched question over back-and-forth guessing.
-- **Remember new learning.** When you discover something non-obvious about this repo — a gotcha, a convention, a fix, a command that wasn't documented — add it back to this file (or a clearly-scoped section) so future sessions benefit. Keep entries concise and high-signal; delete stale ones.
+- **Remember new learning.** When you discover something non-obvious about this repo: a gotcha, a convention, a fix, a command that wasn't documented, add it back to this file (or a clearly-scoped section) so future sessions benefit. Keep entries concise and high-signal; delete stale ones.
 - **Use available skills and MCPs.** Before writing code for a task that matches a listed skill (e.g. `shadcn`, `prisma-*`, `next-*`, `better-auth-*`, `vercel-react-*`, `zod`, etc.), load it with the `skill` tool. And MCPs that are directly relevant to this stack e.g. **`shadcn`** (local; component registry / audit) and **`better-auth`** (remote; auth setup). Use them when the task fits instead of guessing from training data.
 
 ## Stack at a glance
@@ -61,10 +61,10 @@ See existing examples under `src/components/Auth/`.
 
 ## Verification
 
-- **Primary check**: `bun lint` — runs `eslint` with `eslint-config-next` core-web-vitals + typescript.
-- **Type check**: `bun typecheck` — runs `next typegen && tsc --noEmit` for standalone type checking without a full build.
+- **Primary check**: `bun lint`: runs `eslint` with `eslint-config-next` core-web-vitals + typescript.
+- **Type check**: `bun typecheck`: runs `next typegen && tsc --noEmit` for standalone type checking without a full build.
 - **Secondary / type gate**: `bun run build`. TypeScript errors also surface during the build.
-- **Full prod check**: `bun prod` — `prisma generate && eslint && next typegen && tsc --noEmit && next build && next start`. Use before schema or env changes.
+- **Full prod check**: `bun prod`: `prisma generate && eslint && next typegen && tsc --noEmit && next build && next start`. Use before schema or env changes.
 
 ## Prisma (Prisma 7, custom output)
 
@@ -73,28 +73,29 @@ See existing examples under `src/components/Auth/`.
 - `prisma/schema.prisma` has **no** `datasource.url` line. The URL comes from `prisma.config.ts` via `env("DIRECT_URL")` (loaded with `dotenv/config`). Do not add it back inline.
 - `src/lib/database/dbClient.ts` is a `globalThis` singleton (HMR-safe) wired to `PrismaNeon` (takes `{ connectionString }`). Do not instantiate `PrismaClient` elsewhere; import from this file.
 - `serverEnv.DATABASE_URL` is Zod-validated to start with `postgresql://` (`src/lib/env/serverEnv.ts`). A non-`postgresql://` URL throws at boot.
-- Migrations exist under `prisma/migrations/` — `bun migrate` (`prisma migrate dev && prisma generate`) applies them. Schema edits go through that command, not `prisma db push`.
+- Migrations exist under `prisma/migrations/`: `bun migrate` (`prisma migrate dev && prisma generate`) applies them. Schema edits go through that command, not `prisma db push`.
 - `bun studio` runs headless (`--browser none`); open the printed URL in a browser manually.
 - `generated/**` is gitignored and excluded from ESLint. Do not hand-edit generated files.
-- `build` and `prod` scripts prepend `prisma generate` — running raw `next build` will fail with missing types if the client is stale.
+- `build` and `prod` scripts prepend `prisma generate`; running raw `next build` will fail with missing types if the client is stale.
 
 ## Env validation (T3 env)
 
 - `src/lib/env/clientEnv.ts` and `src/lib/env/serverEnv.ts` define Zod schemas via `@t3-oss/env-nextjs`.
-- `serverEnv.ts` uses `experimental__runtimeEnv: process.env`. The `experimental__` prefix is required for non-Next-runtime access — keep it verbatim.
+- `serverEnv.ts` uses `experimental__runtimeEnv: process.env`. The `experimental__` prefix is required for non-Next-runtime access; keep it verbatim.
 - `next.config.ts` imports both env files **as side effects** at the top of the module to trigger validation at load time. Do not remove those imports; the rest of the app reads `serverEnv` / `clientEnv` from those modules.
 - New vars: add to `serverEnv.ts` (server) or `clientEnv.ts` (must be `NEXT_PUBLIC_*`) and mirror in `.env.example`.
 
 ## Styling
 
-- Tailwind v4: all config lives in `src/app/globals.css` via `@theme` and `@custom-variant`. PostCSS plugin is `@tailwindcss/postcss`. There is no `tailwind.config.ts` — do not create one.
+- Tailwind v4: all config lives in `src/app/globals.css` via `@theme` and `@custom-variant`. PostCSS plugin is `@tailwindcss/postcss`. There is no `tailwind.config.ts`; do not create one.
 - `globals.css` imports `shadcn/tailwind.css`; removing it breaks the Base Luma design tokens.
 - Prettier: `singleAttributePerLine: true`, `bracketSameLine: true`, `experimentalTernaries: true`, and `prettier-plugin-tailwindcss` is enabled. New code matches (one prop per line; JSX closing bracket on the same line as the tag).
+- **No em dashes anywhere.** Use colons, semicolons, commas, or parentheses instead. This applies to code, comments, docs, metadata titles, and this file.
 
 ## shadcn / Base UI
 
 - `components.json` sets `ui` → `@/components/shadcnui` (not the default `@/components/ui`). Add components with `bunx shadcn add ...`; they land in `src/components/shadcnui/`.
-- The shipped `Button` wraps `Button as ButtonPrimitive` from `@base-ui/react/button`. Do not introduce Radix or `react-aria` primitives — they don't share the Base Luma styling.
+- The shipped `Button` wraps `Button as ButtonPrimitive` from `@base-ui/react/button`. Do not introduce Radix or `react-aria` primitives; they don't share the Base Luma styling.
 
 ## Path aliases (`tsconfig.json`)
 
@@ -103,8 +104,8 @@ See existing examples under `src/components/Auth/`.
 
 ## Reserved directories
 
-- `src/server/` — server-only modules (server actions, anything importing `server-only`). Currently a `.gitkeep`.
-- `src/hooks/` — custom React hooks. Currently a `.gitkeep`.
+- `src/server/`: server-only modules (server actions, anything importing `server-only`). Currently a `.gitkeep`.
+- `src/hooks/`: custom React hooks. Currently a `.gitkeep`.
 
 ## Package manager
 
@@ -112,30 +113,30 @@ See existing examples under `src/components/Auth/`.
 
 ## Zod v4 quirks
 
-- URL validation uses the top-level `z.url()` (not `z.string().url()`). The `.string()` chain method `.url()` does not exist in v4 — use `z.url()` or `z.url().optional()` directly.
+- URL validation uses the top-level `z.url()` (not `z.string().url()`). The `.string()` chain method `.url()` does not exist in v4; use `z.url()` or `z.url().optional()` directly.
 - `z.string().url()` will fail silently at runtime (returns a type error or unexpected coercion). Always use `z.url()` for WHATWG-compatible URL validation.
 
 ## Proxy (was Middleware)
 
 - The `middleware` file convention is **deprecated** in Next.js 16. The file must be named `proxy.ts` and export a function named `proxy` (not `middleware`).
 - Proxy defaults to the Node.js runtime (Edge runtime not supported in v16 proxy).
-- `@better-fetch/fetch` is not a dependency — use native `fetch` to call `/api/auth/get-session` instead.
+- `@better-fetch/fetch` is not a dependency; use native `fetch` to call `/api/auth/get-session` instead.
 - See `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md` for full docs.
 
 ## typedRoutes with Next.js 16
 
-- `typedRoutes` is enabled — `Link` hrefs must be valid route strings. For routes that don't exist yet (e.g. `/privacy`, `/terms`, `/forgot-password`), cast with `as Route` (import `type { Route } from "next"`). Do **not** use `as any` or `as never`.
+- `typedRoutes` is enabled; `Link` hrefs must be valid route strings. For routes that don't exist yet (e.g. `/privacy`, `/terms`, `/forgot-password`), cast with `as Route` (import `type { Route } from "next"`). Do **not** use `as any` or `as never`.
 - The root `/` is the sign-in page (not a marketing landing page). Sign-up is at `/sign-up`.
 
 ## Better Auth
 
 - For `providerId: "credential"` accounts, Better Auth sets `accountId = userId` (the user's own ID), **not** the email. Verified in `node_modules/better-auth/dist/api/routes/sign-up.mjs` (`accountId: createdUser.id`). Sign-in matches on `providerId === "credential"` only, so an email-based `accountId` still logs in, but it breaks any code expecting `accountId === userId`. Seed scripts must mirror this.
-- Password hashing lives in `src/lib/argon2.ts` (`hashPasswordFunction` / `verifyPasswordFunction`), wired into `auth.ts` via `emailAndPassword.password.{hash,verify}`. Always reuse these — never call `@node-rs/argon2` directly, or the hash may not verify (the secret is encoded with `TextEncoder`, not `Buffer.from`).
+- Password hashing lives in `src/lib/argon2.ts` (`hashPasswordFunction` / `verifyPasswordFunction`), wired into `auth.ts` via `emailAndPassword.password.{hash,verify}`. Always reuse these; never call `@node-rs/argon2` directly, or the hash may not verify (the secret is encoded with `TextEncoder`, not `Buffer.from`).
 - The `admin()` plugin's default roles are `"admin"` and `"user"` (`adminRoles: ["admin"]`, `defaultRole: "user"`). `role` is a plain nullable `String?` in the schema, not an enum.
 
 ## PrismaNeon adapter
 
-- `PrismaNeon` constructor takes `{ connectionString: string }` — not a raw string. Example: `new PrismaNeon({ connectionString: url })`.
+- `PrismaNeon` constructor takes `{ connectionString: string }`, not a raw string. Example: `new PrismaNeon({ connectionString: url })`.
 
 ## Misc
 
