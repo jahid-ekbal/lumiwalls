@@ -53,7 +53,7 @@ See existing examples under `src/components/Auth/`.
 ## Stack at a glance
 
 - Next.js 16.2 + React 19.2 (App Router, Turbopack default, React Compiler on, `typedRoutes` on)
-- Prisma 7 with `@prisma/adapter-libsql` (SQLite, file-backed)
+- Prisma 7 with `@prisma/adapter-neon` (PostgreSQL, Neon serverless)
 - Tailwind CSS v4 (CSS-only config in `globals.css`; no `tailwind.config.ts`)
 - shadcn/ui with the `base-luma` style preset; primitives from `@base-ui/react` (not Radix)
 - `next-themes` (default `dark`, `enableSystem={false}`), `react-toastify`, `lucide-react`
@@ -70,10 +70,10 @@ See existing examples under `src/components/Auth/`.
 
 - Generator: `provider = "prisma-client"`, `output = "../generated/prisma"`. This is the Prisma 7 generator, **not** `prisma-client-js`.
 - Import the client as `import { PrismaClient } from "@generated/prisma/client"`. There is no `@prisma/client` import surface in this repo.
-- `prisma/schema.prisma` has **no** `datasource.url` line. The URL comes from `prisma.config.ts` via `env("DATABASE_URL")` (loaded with `dotenv/config`). Do not add it back inline.
-- `src/lib/database/dbClient.ts` is a `globalThis` singleton (HMR-safe) wired to `PrismaLibSql`. Do not instantiate `PrismaClient` elsewhere; import from this file.
-- `serverEnv.DATABASE_URL` is Zod-validated to start with `file:./` (`src/lib/env/serverEnv.ts`). A non-`file:./` URL throws at boot.
-- No migrations exist yet — `bun migrate` (`prisma migrate dev && prisma generate`) creates `prisma/migrations/`. Schema edits go through that command, not `prisma db push`.
+- `prisma/schema.prisma` has **no** `datasource.url` line. The URL comes from `prisma.config.ts` via `env("DIRECT_URL")` (loaded with `dotenv/config`). Do not add it back inline.
+- `src/lib/database/dbClient.ts` is a `globalThis` singleton (HMR-safe) wired to `PrismaNeon` (takes `{ connectionString }`). Do not instantiate `PrismaClient` elsewhere; import from this file.
+- `serverEnv.DATABASE_URL` is Zod-validated to start with `postgresql://` (`src/lib/env/serverEnv.ts`). A non-`postgresql://` URL throws at boot.
+- Migrations exist under `prisma/migrations/` — `bun migrate` (`prisma migrate dev && prisma generate`) applies them. Schema edits go through that command, not `prisma db push`.
 - `bun studio` runs headless (`--browser none`); open the printed URL in a browser manually.
 - `generated/**` is gitignored and excluded from ESLint. Do not hand-edit generated files.
 - `build` and `prod` scripts prepend `prisma generate` — running raw `next build` will fail with missing types if the client is stale.

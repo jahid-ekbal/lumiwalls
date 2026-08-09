@@ -1,11 +1,13 @@
 import { hashPasswordFunction } from "@/lib/argon2";
 import prisma from "@/lib/database/dbClient";
+import { serverEnv } from "@/lib/env/serverEnv";
 import "dotenv/config";
 
-// Dev-only seed credentials. Change these for any non-local environment
-// or remove this seed entirely before deploying to production.
-const ADMIN_EMAIL = "admin@example.com";
-const ADMIN_PASSWORD = "admin@example.com";
+// Dev-only seed credentials. Override via SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
+// for any non-local environment, or remove this seed entirely before deploying
+// to production.
+const ADMIN_EMAIL = serverEnv.SEED_ADMIN_EMAIL ?? "admin@example.com";
+const ADMIN_PASSWORD = serverEnv.SEED_ADMIN_PASSWORD ?? "admin@example.com";
 
 async function main() {
   console.log("🌱 Seeding database...");

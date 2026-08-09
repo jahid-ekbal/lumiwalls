@@ -32,6 +32,9 @@ export const serverEnv = createEnv({
     S3_SECRET_ACCESS_KEY: z.string().min(1),
     S3_BUCKET_NAME: z.string().min(1),
     S3_PUBLIC_URL: z.url().optional(),
+    // Dev-only seed credentials. Override in non-local environments.
+    SEED_ADMIN_EMAIL: z.string().email().optional(),
+    SEED_ADMIN_PASSWORD: z.string().min(8).optional(),
   },
   experimental__runtimeEnv: process.env,
 });
