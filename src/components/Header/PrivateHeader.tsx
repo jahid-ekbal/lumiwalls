@@ -17,9 +17,15 @@ import {
 } from "@/components/shadcnui/dropdown-menu";
 import { SidebarTrigger } from "@/components/shadcnui/sidebar";
 import { authClient } from "@/lib/auth-client";
-import { LayoutDashboardIcon, LogOutIcon, UserIcon } from "lucide-react";
+import {
+  LayoutDashboardIcon,
+  LogOutIcon,
+  ShieldIcon,
+  UserIcon,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import ThemeToggleButton from "../Buttons/ThemeToggleButton";
 
 const getInitials = (name: string) => {
@@ -33,8 +39,10 @@ const getInitials = (name: string) => {
 
 const PrivateHeader = () => {
   const { data: session, isPending } = authClient.useSession();
+  const pathname = usePathname();
 
   const user = session?.user;
+  const isAdminRoute = pathname.startsWith("/admin");
 
   const handleSignOut = async () => {
     await authClient.signOut();
@@ -45,6 +53,12 @@ const PrivateHeader = () => {
     <header className="bg-background/80 sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b px-4 backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <SidebarTrigger />
+        {isAdminRoute && (
+          <span className="bg-primary/10 text-primary flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium">
+            <ShieldIcon className="h-3 w-3" />
+            Admin
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
