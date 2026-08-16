@@ -42,14 +42,12 @@ const PrivateHeader = () => {
   };
 
   return (
-    <header className="bg-background/80 sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b backdrop-blur-sm">
+    <header className="bg-background/80 sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b px-4 backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <SidebarTrigger />
       </div>
 
       <div className="flex items-center gap-2">
-        <ThemeToggleButton />
-
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -93,6 +91,7 @@ const PrivateHeader = () => {
 
             <DropdownMenuGroup>
               <DropdownMenuItem
+                className="cursor-pointer"
                 render={
                   <Link href={"/profile" as Route}>
                     <UserIcon className="mr-2 h-4 w-4" />
@@ -100,6 +99,7 @@ const PrivateHeader = () => {
                   </Link>
                 }></DropdownMenuItem>
               <DropdownMenuItem
+                className="cursor-pointer"
                 render={
                   <Link href={"/dashboard" as Route}>
                     <LayoutDashboardIcon className="mr-2 h-4 w-4" />
@@ -118,6 +118,8 @@ const PrivateHeader = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <ThemeToggleButton />
       </div>
     </header>
   );

@@ -7,6 +7,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -44,22 +45,23 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      variant="inset"
+      variant="sidebar"
       className="z-40">
       <SidebarHeader>
-        <div className="flex h-12 items-center px-3">
+        <div className="flex h-12 items-center px-0.5">
           <Brand showText={state === "expanded"} />
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupLabel>General</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    isActive={pathname === item.url}
+                    isActive={pathname.startsWith(item.url)}
                     render={
                       <Link href={item.url as Route}>
                         <item.icon />
@@ -79,6 +81,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
+              isActive={pathname.startsWith("/settings")}
               render={
                 <Link href={"/settings" as Route}>
                   <SettingsIcon />
