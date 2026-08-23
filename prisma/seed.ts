@@ -54,6 +54,74 @@ async function main() {
   }
 
   console.log(`✅ Seeded admin user: ${ADMIN_EMAIL}`);
+
+  const categories = [
+    {
+      name: "Nature",
+      slug: "nature",
+      description: "Landscapes, forests, oceans",
+      icon: "Leaf",
+      color: "#22C55E",
+    },
+    {
+      name: "Abstract",
+      slug: "abstract",
+      description: "Shapes, gradients, fluid",
+      icon: "Shapes",
+      color: "#A855F7",
+    },
+    {
+      name: "Minimal",
+      slug: "minimal",
+      description: "Clean, whitespace",
+      icon: "Minus",
+      color: "#E5E7EB",
+    },
+    {
+      name: "Dark",
+      slug: "dark",
+      description: "AMOLED, black",
+      icon: "Moon",
+      color: "#18181B",
+    },
+    {
+      name: "Anime",
+      slug: "anime",
+      description: "Illustrated, anime",
+      icon: "Sparkles",
+      color: "#EC4899",
+    },
+    {
+      name: "Cityscape",
+      slug: "cityscape",
+      description: "Urban, architecture",
+      icon: "Building2",
+      color: "#64748B",
+    },
+    {
+      name: "Space",
+      slug: "space",
+      description: "Nebula, stars",
+      icon: "Rocket",
+      color: "#0EA5E9",
+    },
+    {
+      name: "Technology",
+      slug: "technology",
+      description: "Cyber, futuristic",
+      icon: "Cpu",
+      color: "#06B6D4",
+    },
+  ];
+
+  for (const cat of categories) {
+    await prisma.category.upsert({
+      where: { slug: cat.slug },
+      update: {},
+      create: cat,
+    });
+  }
+  console.log(`✅ Seeded ${categories.length} categories`);
 }
 
 main()

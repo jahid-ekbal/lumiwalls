@@ -1,6 +1,17 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+
 import { serverEnv } from "./env/serverEnv";
 import { s3Client } from "./storage/b2Client";
+
+/**
+ * Sanitize a file name by stripping path, replacing unsafe characters, and truncating.
+ */
+export const sanitizeFileName = (name: string): string => {
+  const withoutPath = name.split(/[\\/]/).pop() ?? name;
+  const sanitized = withoutPath.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const truncated = sanitized.slice(0, 100);
+  return truncated || "file";
+};
 
 /**
  * Build an S3 object key following the bucket key convention.

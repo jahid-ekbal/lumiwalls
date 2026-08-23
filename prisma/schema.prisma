@@ -11,6 +11,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id            String    @id
   name          String
@@ -26,6 +32,9 @@ model User {
   banned     Boolean?  @default(false)
   banReason  String?
   banExpires DateTime?
+
+  wallpapers        Wallpaper[]       @relation("UploaderWallpapers")
+  moderationReviews ModerationQueue[] @relation("ModerationReviewer")
 
   @@unique([email])
   @@map("user")
@@ -79,4 +88,118 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Category {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  slug        String      @unique
+  description String?     @db.Text
+  icon        String?
+  color       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  wallpapers  Wallpaper[]
+
+  @@index([slug])
+  @@map("category")
+}
+
+model Tag {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  slug      String         @unique
+  createdAt DateTime       @default(now())
+  wallpapers WallpaperTag[]
+
+  @@index([slug])
+  @@map("tag")
+}
+
+model WallpaperTag {
+  wallpaperId String
+  tagId       String
+  assignedAt  DateTime  @default(now())
+  wallpaper   Wallpaper @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([wallpaperId, tagId])
+  @@index([tagId])
+  @@index([wallpaperId])
+  @@map("wallpaper_tag")
+}
+
+model Wallpaper {
+  id          String  @id @default(cuid())
+  title       String  @db.VarChar(120)
+  slug        String  @unique
+  description String? @db.Text
+
+  originalUrl  String?
+  thumb400Url  String?
+  thumb800Url  String?
+  thumb1920Url String?
+  blurDataUrl  String? @db.Text
+
+  width            Int?
+  height           Int?
+  format           String?
+  fileSize         Int?
+  aspectRatio      String?
+  aspectRatioValue Float?
+  dominantColors   String[] @default([])
+  pHash            String?  @db.VarChar(64)
+
+  isPublic    Boolean @default(true)
+  isApproved  Boolean @default(false)
+  featured    Boolean @default(false)
+  editorsPick Boolean @default(false)
+
+  downloadCount Int   @default(0)
+  viewCount     Int   @default(0)
+  avgRating     Float @default(0)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  uploaderId String
+  uploader   User     @relation("UploaderWallpapers", fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  tags            WallpaperTag[]
+  moderationQueue ModerationQueue?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([uploaderId])
+  @@index([createdAt(sort: Desc)])
+  @@index([pHash])
+  @@index([aspectRatio])
+  @@index([isApproved])
+  @@index([featured])
+  @@index([editorsPick])
+  @@index([isApproved, isPublic, createdAt(sort: Desc)])
+  @@index([categoryId, createdAt(sort: Desc)])
+  @@index([uploaderId, createdAt(sort: Desc)])
+  @@map("wallpaper")
+}
+
+model ModerationQueue {
+  id          String           @id @default(cuid())
+  wallpaperId String           @unique
+  wallpaper   Wallpaper        @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  status      ModerationStatus @default(PENDING)
+  reviewerId  String?
+  reviewer    User?            @relation("ModerationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewNotes String?          @db.Text
+  createdAt   DateTime         @default(now())
+  reviewedAt  DateTime?
+  updatedAt   DateTime         @updatedAt
+
+  @@index([status])
+  @@index([reviewerId])
+  @@index([createdAt(sort: Desc)])
+  @@map("moderation_queue")
 }

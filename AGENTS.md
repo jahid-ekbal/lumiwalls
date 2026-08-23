@@ -73,7 +73,7 @@ See existing examples under `src/components/Auth/`.
 - `prisma/schema.prisma` has **no** `datasource.url` line. The URL comes from `prisma.config.ts` via `env("DIRECT_URL")` (loaded with `dotenv/config`). Do not add it back inline.
 - `src/lib/database/dbClient.ts` is a `globalThis` singleton (HMR-safe) wired to `PrismaNeon` (takes `{ connectionString }`). Do not instantiate `PrismaClient` elsewhere; import from this file.
 - `serverEnv.DATABASE_URL` is Zod-validated to start with `postgresql://` (`src/lib/env/serverEnv.ts`). A non-`postgresql://` URL throws at boot.
-- Migrations exist under `prisma/migrations/`: `bun migrate` (`prisma migrate dev && prisma generate`) applies them. Schema edits go through that command, not `prisma db push`.
+- Migrations exist under `prisma/migrations/`: apply with `bunx prisma migrate dev --name <migration-name>` then `bun prisma generate` (or `bunx prisma generate`). Do not use `bun migrate` (it runs `prisma migrate dev` in interactive mode) and do not use `prisma db push`.
 - `bun studio` runs headless (`--browser none`); open the printed URL in a browser manually.
 - `generated/**` is gitignored and excluded from ESLint. Do not hand-edit generated files.
 - `build` and `prod` scripts prepend `prisma generate`; running raw `next build` will fail with missing types if the client is stale.

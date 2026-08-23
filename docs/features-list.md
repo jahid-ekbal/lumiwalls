@@ -24,19 +24,15 @@ The client selects files using use-file-picker, then requests a presigned URL vi
 
 BetterAuth 1.6 manages its core authentication tables via the Prisma adapter. The application extends the generated User model with app-specific relations.
 
-**Core Models:**
+**Core Models (remaining):**
 
-- **User:** Extended from BetterAuth with fields for name, email, avatar, role (user, moderator, admin), and relations to wallpapers, favorites, collections, ratings, follows, reports, downloads, views, and moderation logs.
+- **User:** Extended from BetterAuth with fields for name, email, avatar, role, and relations to favorites, collections, ratings, follows, reports, downloads, and views.
 - **Session:** Managed by BetterAuth for authentication state.
-- **Wallpaper:** Central content model with storage URLs (original, small, medium, large, blur placeholder), metadata (dimensions, file size, aspect ratio, dominant colors, perceptual hash), status flags (public, approved, featured, editor's pick), denormalized stats (downloads, views, average rating), and relations to category, uploader, tags, favorites, ratings, collection items, reports, moderation queue, editorial collections, and featured entries.
-- **Category:** Predefined taxonomy (Nature, Abstract, Minimal, Dark, Anime, etc.) with name, slug, description, icon, and color.
-- **Tag:** User-defined and system tags with name and slug, linked to wallpapers through a join table.
 - **Favorite:** One-click heart system linking users to wallpapers, with uniqueness constraint per user-wallpaper pair.
 - **Collection (Board):** User-created named collections with public/private toggle, containing ordered wallpaper references.
 - **Rating:** 1–5 star scoring per wallpaper per user, with aggregate average stored on the wallpaper for fast reads.
 - **Follow:** Bidirectional relationship allowing users to follow uploaders and curators for a personalized feed.
 - **Report:** User-submitted reports for copyright, NSFW, or quality issues, with pending, resolved, and dismissed statuses.
-- **ModerationQueue:** Holds all user uploads in pending state until an admin approves or rejects them, with review notes and reviewer attribution.
 - **EditorialCollection:** Admin-curated themed collections (seasonal, event-based, artist spotlights) with active status and sort ordering.
 - **FeaturedWallpaper:** Scheduled hero, trending, and seasonal placements with active date ranges.
 - **DownloadLog & ViewLog:** Analytics tracking tables recording IP addresses, user agents, and timestamps for engagement metrics.
@@ -68,29 +64,16 @@ Presigned upload URLs are generated with a five-minute expiry, allowing the clie
 
 ### Image Processing Pipeline
 
-The processing pipeline handles several steps in sequence. The pipeline receives a `File` object, converts it to an `ArrayBuffer`, and passes it directly to `sharp()`.
+The pipeline receives a `Buffer` from S3 via `GetObjectCommand`, applies `sharp().rotate()` for EXIF auto-orient and strip, extracts metadata, generates a 10px blur placeholder, buckets aspect ratio, and creates three WebP thumbnails (400, 800, 1920) with `p-limit` concurrency 3, uploading via `uploadWebpToS3`.
 
-**Implemented (Sprint 0):**
+Remaining:
 
-1. EXIF data is stripped from the original image for privacy.
-2. Image metadata (width, height, format, file size) is extracted.
-3. A tiny blurred placeholder (10px wide) is generated and encoded as a base64 JPEG data URL for Next.js image placeholders.
-4. The aspect ratio is calculated and bucketed into standard categories like 16:9, 21:9, 9:16, and 1:1.
-
-**Deferred to Sprint 2:**
-
-- Three WebP thumbnails at 400px, 800px, and 1920px widths.
 - Dominant color extraction using node-vibrant.
 - Perceptual hash computation for duplicate detection.
-- Uploading processed files to S3.
 
 ### Server Actions Structure
 
-next-safe-action is used to create type-safe Server Actions with built-in middleware support. Three action clients are defined:
-
-- A base action client for unauthenticated operations.
-- An authenticated action client that validates sessions and injects the user context.
-- An admin action client that extends authentication with role verification.
+Plain `"use server"` actions with `auth.api.getSession` guards and `zod` validation (no `next-safe-action`). Admin actions verify `session.user.role === "admin"` and use `revalidatePath` after mutations.
 
 ---
 
@@ -142,11 +125,10 @@ During upload finalization, the perceptual hash of the new image is compared aga
 
 ## 6. Additional Recommended Libraries
 
-- **next-safe-action:** Provides type-safe Server Actions with middleware chains, input validation, and structured error handling.
 - **satori and resvg:** Required for OG image generation on non-Vercel hosting.
 - **use-debounce:** Prevents excessive API calls during live search input.
 - **react-intersection-observer:** Powers infinite scroll loading in the masonry grid.
-- **rate-limiter-flexible:** Protects upload and download endpoints with PostgreSQL-backed rate limiting, suitable for Render's horizontal scaling.
+- **rate-limiter-flexible:** Protects download endpoint with PostgreSQL-backed rate limiting (upload limit already implemented via 5/hour count).
 - **prisma-kysely or raw queries:** Handles complex analytics aggregations that exceed Prisma's query builder capabilities.
 - **upstash-redis:** Offers an alternative caching and rate limiting backend with a generous free tier.
 
@@ -154,21 +136,8 @@ During upload finalization, the perceptual hash of the new image is compared aga
 
 ## 7. Implementation Roadmap
 
-### Sprint 0: Foundation and DevOps (Days 1–5)
-
-- Initialize the Next.js 16 project with TypeScript and Tailwind CSS 4.
-- Configure shadcn UI and install base components including Button, Input, Dialog, Sheet, and Dropdown.
-- Set up the Neon Postgres database and run the initial Prisma migration.
-- Install and configure BetterAuth 1.6 with email and password authentication.
-- Create the Backblaze B2 bucket and verify S3 SDK connectivity.
-- Configure the Render deployment environment and establish CI through GitHub Actions.
-- Build the base layout with Header, Footer, and mobile navigation.
-
-**Deliverable:** A live site on Render with working authentication.
-
 ### Sprint 1: Core Discovery (Days 6–12)
 
-- Seed the category taxonomy into the database.
 - Build the wallpaper browse page with the masonry grid layout.
 - Implement the filter sidebar for category, aspect ratio, color, and resolution.
 - Integrate nuqs-based URL state synchronization for all filters.
@@ -180,18 +149,14 @@ During upload finalization, the perceptual hash of the new image is compared aga
 
 **Deliverable:** Users can browse, filter, search, and favorite wallpapers.
 
-### Sprint 2: Upload Pipeline (Days 13–19)
+### Sprint 2: Upload Pipeline (remaining)
 
-- Build the upload interface with use-file-picker and drag-and-drop support.
-- Implement the presigned URL flow for direct Backblaze B2 uploads.
-- Integrate sharp for thumbnail generation and EXIF stripping.
 - Integrate node-vibrant for dominant color extraction.
 - Implement perceptual hash generation for duplicate detection.
 - Build the user dashboard showing upload counts, favorite counts, and personal stats.
-- Create moderation queue entries automatically upon upload completion.
 - Build public profile pages for uploaders.
 
-**Deliverable:** Users can upload wallpapers; all uploads enter the moderation queue.
+**Deliverable:** Upload enrichment and user pages.
 
 ### Sprint 3: Social Features (Days 20–26)
 
@@ -205,10 +170,8 @@ During upload finalization, the perceptual hash of the new image is compared aga
 
 **Deliverable:** The full social layer is operational.
 
-### Sprint 4: Admin Panel (Days 27–33)
+### Sprint 4: Admin Panel (remaining)
 
-- Create the admin route group with a dedicated sidebar layout.
-- Implement middleware and server-side protection for admin routes.
 - Build the moderation dashboard with approve, reject, and flag actions.
 - Add bulk moderation capabilities.
 - Implement editorial collections management.
@@ -219,12 +182,10 @@ During upload finalization, the perceptual hash of the new image is compared aga
 
 **Deliverable:** Administrators can manage all content, users, and platform analytics.
 
-### Sprint 5: Polish and Performance (Days 34–40)
+### Sprint 5: Polish and Performance (remaining)
 
-- Implement blur data URL loading with Next.js Image component.
 - Add infinite scroll to the browse page using intersection observers.
-- Integrate p-limit for controlled batch processing concurrency.
-- Implement rate limiting on uploads and downloads.
+- Implement rate limiting on downloads (upload limit 5/hour already done).
 - Generate dynamic XML sitemaps.
 - Add error boundaries and loading skeletons throughout the application.
 - Apply motion.dev animations for page transitions, hover states, and micro-interactions.
@@ -264,15 +225,10 @@ Connection pooling is essential for serverless environments. Use the pooler URL 
 
 ---
 
-## 9. Security and Performance Checklist
+## 9. Security and Performance Checklist (remaining)
 
-- **Authentication:** BetterAuth manages sessions, CSRF tokens, and secure cookies.
-- **File Uploads:** Mime-type validation, size limits, and short-lived presigned URLs prevent abuse.
-- **Image Processing:** Concurrency is limited to three simultaneous operations using p-limit.
-- **Rate Limiting:** Five uploads per hour per user and one hundred downloads per hour per IP address.
-- **Admin Access:** Both middleware and server action layers verify the admin role.
-- **Privacy:** EXIF metadata is fully stripped from all uploaded images.
-- **CORS:** Backblaze B2 bucket CORS is restricted to the production Render domain.
+- **Rate Limiting (downloads):** One hundred downloads per hour per IP address (upload 5/hour already enforced).
+- **CORS:** Backblaze B2 bucket CORS is restricted to the production Render domain (pending audit).
 - **SQL Injection:** All queries use Prisma ORM with parameterized statements.
 - **XSS:** React's default escaping is relied upon; no raw HTML injection from user input is permitted.
 

@@ -26,6 +26,7 @@ import {
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
+  TagsIcon,
   UploadIcon,
   UsersIcon,
 } from "lucide-react";
@@ -41,6 +42,7 @@ const items = [
 
 const adminItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboardIcon },
+  { title: "Taxonomy", url: "/admin/taxonomy", icon: TagsIcon },
   { title: "Moderation", url: "/admin/moderation", icon: ShieldIcon },
   { title: "Users", url: "/admin/users", icon: UsersIcon },
   { title: "Reports", url: "/admin/reports", icon: FlagIcon },
