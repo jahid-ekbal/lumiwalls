@@ -1,12 +1,16 @@
 "use client";
 
 import { Button } from "@/components/shadcnui/button";
+import { Checkbox } from "@/components/shadcnui/checkbox";
 import { Field, FieldError, FieldLabel } from "@/components/shadcnui/field";
 import { Input } from "@/components/shadcnui/input";
+import { Label } from "@/components/shadcnui/label";
 import { authClient } from "@/lib/auth-client";
 import { signInSchema, type SignInType } from "@/lib/zodSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2Icon, LockIcon } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
@@ -24,14 +28,16 @@ const SignInForm = () => {
     defaultValues: {
       email: "",
       password: "",
+      rememberMe: false,
     },
     mode: "all",
   });
 
-  const signInHandler = async ({ email, password }: SignInType) => {
+  const signInHandler = async ({ email, password, rememberMe }: SignInType) => {
     const { error } = await authClient.signIn.email({
       email,
       password,
+      rememberMe,
     });
 
     if (error) {
@@ -88,6 +94,33 @@ const SignInForm = () => {
           </Field>
         )}
       />
+
+      {/* Remember me + Forgot password */}
+      <div className="flex items-center justify-between">
+        <Controller
+          name="rememberMe"
+          control={control}
+          render={({ field }) => (
+            <Field orientation="horizontal">
+              <Checkbox
+                id={field.name}
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+              <Label
+                htmlFor={field.name}
+                className="text-sm font-normal">
+                Remember me
+              </Label>
+            </Field>
+          )}
+        />
+        <Link
+          href={"/forgot-password" as Route}
+          className="text-sm underline-offset-4 hover:underline">
+          Forgot password?
+        </Link>
+      </div>
 
       {/* Submit button */}
       <Button

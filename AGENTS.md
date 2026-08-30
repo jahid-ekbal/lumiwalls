@@ -65,6 +65,12 @@ See existing examples under `src/components/Auth/`.
 - **Type check**: `bun typecheck`: runs `next typegen && tsc --noEmit` for standalone type checking without a full build.
 - **Secondary / type gate**: `bun run build`. TypeScript errors also surface during the build.
 - **Full prod check**: `bun prod`: `prisma generate && eslint && next typegen && tsc --noEmit && next build && next start`. Use before schema or env changes.
+- **UI verification**: Use `playwright-cli` in `--headed` mode for all browser checks. Run `playwright-cli --help` to see commands. Always pass `--headed` (e.g., `playwright-cli open --headed`). Do not use headless for verifications.
+  - Invoke as `playwright-cli ...` directly, not `bunx playwright-cli ...`.
+  - Do not pipe output with `2>&1 | Select-Object -First 50`; run commands bare.
+  - Core commands from `--help`: `open [url] --headed`, `snapshot [target]`, `eval <func> [target]`, `click <target>`, `fill <target> <text>`, `goto <url>`, `screenshot`, `close`, plus `attach`, `dblclick`, `drag`, `drop`, `hover`, `select`, `upload`, `check/uncheck`, `find`, `dialog-accept/dismiss`, `resize`, `delete-data`. Snapshots return YAML with `ref` handles and console log paths under `.playwright-cli/`.
+  - Authenticated flows: dev seed is `prisma/seed.ts` (`ADMIN_EMAIL`/`ADMIN_PASSWORD` default `admin@example.com` / `admin@example.com`, override via `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`, hashed via `src/lib/argon2.ts` `hashPasswordFunction`, `accountId = userId` for `credential` provider). Sign in at `/` by filling `Email`/`Password` textboxes and clicking `Sign In` (`replace("/browse")`) before verifying private routes (`/browse`, `/dashboard`, `/admin/*`, `/settings`, `/upload` redirect to `/` when unauthenticated via `proxy.ts`).
+  - Active-state checks use `eval` on `[data-active]` / `[data-ancestor]` (e.g. `document.querySelectorAll('[data-active]')`, `getComputedStyle(e).opacity` for breadcrumb `opacity-60`).
 
 ## Prisma (Prisma 7, custom output)
 

@@ -10,6 +10,7 @@ export const signInSchema = z.object({
     .string()
     .min(8, { error: "Password must be at least 8 characters" })
     .max(128, { error: "Password must not exceed 128 characters" }),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export type SignInType = z.infer<typeof signInSchema>;

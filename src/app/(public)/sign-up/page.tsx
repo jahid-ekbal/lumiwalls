@@ -7,13 +7,13 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/shadcnui/card";
-import { Metadata } from "next";
+import { createMetadata } from "@/lib/metadata";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "Sign Up | Lumiwalls",
+export const metadata = createMetadata({
+  title: "Sign Up",
   description: "Create your Lumiwalls account",
-};
+});
 
 const SignUpPage = () => {
   return (

@@ -1,10 +1,11 @@
 import TaxonomyClient from "@/components/Admin/TaxonomyClient";
 import prisma from "@/lib/database/dbClient";
-import type { Metadata } from "next";
+import { createMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
-  title: "Taxonomy | Lumiwalls",
-};
+export const metadata = createMetadata({
+  title: "Taxonomy",
+  description: "Manage taxonomy and categories on Lumiwalls",
+});
 
 const TaxonomyPage = async () => {
   const [categories, tags] = await Promise.all([

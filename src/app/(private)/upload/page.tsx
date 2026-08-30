@@ -8,13 +8,14 @@ import {
 } from "@/components/shadcnui/card";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
-import type { Metadata } from "next";
+import { createMetadata } from "@/lib/metadata";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Upload | Lumiwalls",
-};
+export const metadata = createMetadata({
+  title: "Upload",
+  description: "Upload a new wallpaper to Lumiwalls",
+});
 
 const UploadPage = async () => {
   const session = await auth.api.getSession({ headers: await headers() });

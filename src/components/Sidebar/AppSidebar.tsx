@@ -22,7 +22,6 @@ import {
   FlagIcon,
   FolderOpenIcon,
   LayoutDashboardIcon,
-  LogOutIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
@@ -57,11 +56,11 @@ export function AppSidebar() {
   const { data: session } = authClient.useSession();
 
   const isAdmin = session?.user.role === "admin";
+  const path = pathname ?? "";
 
-  const handleSignOut = async () => {
-    await authClient.signOut();
-    window.location.href = "/";
-  };
+  function isActivePath(url: string) {
+    return path === url || path.startsWith(url + "/");
+  }
 
   return (
     <Sidebar
@@ -82,7 +81,7 @@ export function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    isActive={pathname.startsWith(item.url)}
+                    isActive={isActivePath(item.url)}
                     render={
                       <Link href={item.url as Route}>
                         <item.icon />
@@ -102,20 +101,32 @@ export function AppSidebar() {
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith(item.url)}
-                      render={
-                        <Link href={item.url as Route}>
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </Link>
-                      }
-                      tooltip={item.title}
-                    />
-                  </SidebarMenuItem>
-                ))}
+                {adminItems.map((item) => {
+                  const isAdminDashboard = item.url === "/admin";
+                  const isActive =
+                    isAdminDashboard ?
+                      path === "/admin"
+                    : isActivePath(item.url);
+                  const isAncestor =
+                    isAdminDashboard && !isActive && path.startsWith("/admin/");
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        className={isAncestor ? "opacity-60" : undefined}
+                        data-ancestor={isAncestor || undefined}
+                        render={
+                          <Link href={item.url as Route}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                          </Link>
+                        }
+                        tooltip={item.title}
+                      />
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -126,7 +137,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              isActive={pathname.startsWith("/settings")}
+              isActive={isActivePath("/settings")}
               render={
                 <Link href={"/settings" as Route}>
                   <SettingsIcon />
@@ -135,14 +146,6 @@ export function AppSidebar() {
               }
               tooltip="Settings"
             />
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={handleSignOut}
-              tooltip="Sign Out">
-              <LogOutIcon />
-              <span>Sign Out</span>
-            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
