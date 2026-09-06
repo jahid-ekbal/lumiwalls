@@ -46,7 +46,7 @@ See existing examples under `src/components/Auth/`.
 
 ## Agent behavior
 
-- **Ask questions.** When the request is ambiguous, when there are real implementation choices with tradeoffs, or before any non-obvious / destructive action, use the `question` tool to confirm. Prefer one short batched question over back-and-forth guessing.
+- **Ask questions.** When the request is ambiguous, when there are real implementation choices with tradeoffs, or before any non-obvious / destructive action, use the `question` tool to confirm. Always ask one question at a time, because one question's answer can affect the next questions and their answers.
 - **Remember new learning.** When you discover something non-obvious about this repo: a gotcha, a convention, a fix, a command that wasn't documented, add it back to this file (or a clearly-scoped section) so future sessions benefit. Keep entries concise and high-signal; delete stale ones.
 - **Use available skills and MCPs.** Before writing code for a task that matches a listed skill (e.g. `shadcn`, `prisma-*`, `next-*`, `better-auth-*`, `vercel-react-*`, `zod`, etc.), load it with the `skill` tool. And MCPs that are directly relevant to this stack e.g. **`shadcn`** (local; component registry / audit) and **`better-auth`** (remote; auth setup). Use them when the task fits instead of guessing from training data.
 
@@ -65,7 +65,7 @@ See existing examples under `src/components/Auth/`.
 - **Type check**: `bun typecheck`: runs `next typegen && tsc --noEmit` for standalone type checking without a full build.
 - **Secondary / type gate**: `bun run build`. TypeScript errors also surface during the build.
 - **Full prod check**: `bun prod`: `prisma generate && eslint && next typegen && tsc --noEmit && next build && next start`. Use before schema or env changes.
-- **UI verification**: Use `playwright-cli` in `--headed` mode for all browser checks. Run `playwright-cli --help` to see commands. Always pass `--headed` (e.g., `playwright-cli open --headed`). Do not use headless for verifications.
+- **UI verification**: Use `playwright-cli` in `--headed` mode for all browser checks. Run `playwright-cli --help` to see commands. Always pass `--headed` (e.g., `playwright-cli open --headed`). Do not use headless for verifications. Never run blocking foreground commands (`bun dev` in the foreground, `next start`, watch mode); they hang the session and the user has to unstick it. Do not start a dev server with `Start-Process` or background jobs; those hang the session too. The working method is a fully detached launch via `Invoke-CimMethod -ClassName Win32_Process -MethodName Create` (returns a PID immediately), then poll readiness with short commands (`Get-Content` on a redirected log, `Get-NetTCPConnection -LocalPort 3000`), and kill the tree with `taskkill /pid <pid> /t /f` when done. If no working launch method exists, ask the user to start the server and give you the URL. When no browser check is needed, default to `bun lint` plus `bun run build` instead.
   - Invoke as `playwright-cli ...` directly, not `bunx playwright-cli ...`.
   - Do not pipe output with `2>&1 | Select-Object -First 50`; run commands bare.
   - Core commands from `--help`: `open [url] --headed`, `snapshot [target]`, `eval <func> [target]`, `click <target>`, `fill <target> <text>`, `goto <url>`, `screenshot`, `close`, plus `attach`, `dblclick`, `drag`, `drop`, `hover`, `select`, `upload`, `check/uncheck`, `find`, `dialog-accept/dismiss`, `resize`, `delete-data`. Snapshots return YAML with `ref` handles and console log paths under `.playwright-cli/`.
@@ -102,6 +102,7 @@ See existing examples under `src/components/Auth/`.
 
 - `components.json` sets `ui` → `@/components/shadcnui` (not the default `@/components/ui`). Add components with `bunx shadcn add ...`; they land in `src/components/shadcnui/`.
 - The shipped `Button` wraps `Button as ButtonPrimitive` from `@base-ui/react/button`. Do not introduce Radix or `react-aria` primitives; they don't share the Base Luma styling.
+- For a link that looks like a button, use `Link` with `buttonVariants` directly, not `Button` wrapping `Link`. Example: `<Link href="#" className={buttonVariants({ variant: "secondary", size: "sm" })}>Login</Link>` with `buttonVariants` imported from `@/components/shadcnui/button`.
 
 ## Path aliases (`tsconfig.json`)
 

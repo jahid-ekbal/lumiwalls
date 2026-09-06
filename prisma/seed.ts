@@ -117,7 +117,12 @@ async function main() {
   for (const cat of categories) {
     await prisma.category.upsert({
       where: { slug: cat.slug },
-      update: {},
+      update: {
+        name: cat.name,
+        description: cat.description,
+        icon: cat.icon,
+        color: cat.color,
+      },
       create: cat,
     });
   }

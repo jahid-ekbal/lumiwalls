@@ -45,6 +45,7 @@ import {
   type CategoryCreateType,
   type TagCreateType,
 } from "@/lib/zodSchema";
+import { slugify } from "@/lib/slugify";
 import {
   createCategory,
   createTag,
@@ -55,12 +56,14 @@ import {
 } from "@/server/actions/taxonomy";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  icons,
   Loader2Icon,
   PencilIcon,
   PlusIcon,
   TagsIcon,
   TrashIcon,
   FolderIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -88,14 +91,6 @@ type Props = {
   categories: CategoryRow[];
   tags: TagRow[];
 };
-
-const slugify = (text: string) =>
-  text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40);
 
 const TaxonomyClient = ({ categories, tags }: Props) => {
   const router = useRouter();
@@ -130,20 +125,40 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
     name: "name",
   });
   const tagNameValue = useWatch({ control: tagForm.control, name: "name" });
-  const categorySlugPreview = slugify(categoryNameValue ?? "");
-  const tagSlugPreview = slugify(tagNameValue ?? "");
+  const categoryDerivedSlug = slugify(categoryNameValue ?? "");
+  const tagDerivedSlug = slugify(tagNameValue ?? "");
+  const categorySlugField =
+    useWatch({ control: categoryForm.control, name: "slug" }) ?? "";
+  const tagSlugField =
+    useWatch({ control: tagForm.control, name: "slug" }) ?? "";
+
+  const categoryIconValue = useWatch({
+    control: categoryForm.control,
+    name: "icon",
+  });
+  const trimmedIconName = categoryIconValue?.trim() ?? "";
+  const IconPreview =
+    trimmedIconName ?
+      (icons as Record<string, LucideIcon | undefined>)[trimmedIconName]
+    : undefined;
+
+  const categoryToDelete =
+    categories.find((cat) => cat.id === deleteCategoryId) ?? null;
+  const tagToDelete = tags.find((tag) => tag.id === deleteTagId) ?? null;
 
   useEffect(() => {
-    categoryForm.setValue("slug", categorySlugPreview, {
+    if (editingCategory) return;
+    categoryForm.setValue("slug", categoryDerivedSlug, {
       shouldValidate: true,
     });
-  }, [categoryForm, categorySlugPreview]);
+  }, [categoryForm, categoryDerivedSlug, editingCategory]);
 
   useEffect(() => {
-    tagForm.setValue("slug", tagSlugPreview, {
+    if (editingTag) return;
+    tagForm.setValue("slug", tagDerivedSlug, {
       shouldValidate: true,
     });
-  }, [tagForm, tagSlugPreview]);
+  }, [tagForm, tagDerivedSlug, editingTag]);
 
   const openCreateCategory = () => {
     setEditingCategory(null);
@@ -170,15 +185,16 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
   };
 
   const handleCategorySubmit = async (data: CategoryCreateType) => {
-    const derivedSlug = slugify(data.name);
-    if (!derivedSlug) {
+    const effectiveSlug =
+      data.slug?.trim() ? data.slug.trim() : slugify(data.name);
+    if (!effectiveSlug) {
       toast.error("Name must contain letters or numbers to generate a slug");
       return;
     }
     const payload =
       editingCategory ?
-        { id: editingCategory.id, ...data, slug: derivedSlug }
-      : { ...data, slug: derivedSlug };
+        { id: editingCategory.id, ...data, slug: effectiveSlug }
+      : { ...data, slug: effectiveSlug };
     const schema =
       editingCategory ? categoryUpdateSchema : categoryCreateSchema;
     const parsed = schema.safeParse(payload);
@@ -193,6 +209,7 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
       const msg =
         result.error === "NAME_EXISTS" ? "Name already exists"
         : result.error === "SLUG_EXISTS" ? "Slug already exists"
+        : result.error === "INVALID_ICON" ? "Unknown lucide icon name"
         : result.error === "VALIDATION_ERROR" ? "Validation failed"
         : result.error;
       toast.error(msg);
@@ -229,15 +246,16 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
   };
 
   const handleTagSubmit = async (data: TagCreateType) => {
-    const derivedSlug = slugify(data.name);
-    if (!derivedSlug) {
+    const effectiveSlug =
+      data.slug?.trim() ? data.slug.trim() : slugify(data.name);
+    if (!effectiveSlug) {
       toast.error("Name must contain letters or numbers to generate a slug");
       return;
     }
     const payload =
       editingTag ?
-        { id: editingTag.id, ...data, slug: derivedSlug }
-      : { ...data, slug: derivedSlug };
+        { id: editingTag.id, ...data, slug: effectiveSlug }
+      : { ...data, slug: effectiveSlug };
     const schema = editingTag ? tagUpdateSchema : tagCreateSchema;
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
@@ -320,9 +338,13 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
           </CardHeader>
           <CardContent>
             {categories.length === 0 ?
-              <p className="text-muted-foreground py-8 text-center text-sm">
-                No categories yet
-              </p>
+              <Alert>
+                <AlertTitle>No categories yet</AlertTitle>
+                <AlertDescription>
+                  Create categories here first, then they will be available in
+                  the upload form.
+                </AlertDescription>
+              </Alert>
             : <Table>
                 <TableHeader>
                   <TableRow>
@@ -508,13 +530,17 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
               </FieldLabel>
               <Input
                 id="category-slug-preview"
-                value={categorySlugPreview}
+                value={
+                  editingCategory ? categorySlugField : categoryDerivedSlug
+                }
                 readOnly
                 disabled
                 placeholder="auto from name"
               />
               <FieldDescription>
-                Generated automatically from name
+                {editingCategory ?
+                  "Saved slug; a rename updates it only when untouched"
+                : "Generated automatically from name"}
               </FieldDescription>
             </Field>
             <Controller
@@ -551,6 +577,15 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
                       placeholder="Leaf"
                       aria-invalid={fieldState.invalid}
                     />
+                    {trimmedIconName !== "" &&
+                      (IconPreview ?
+                        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                          <IconPreview className="size-4" />
+                          {trimmedIconName}
+                        </span>
+                      : <span className="text-destructive text-xs">
+                          Unknown icon name
+                        </span>)}
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -642,6 +677,7 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
                     placeholder="sunset"
                     aria-invalid={fieldState.invalid}
                   />
+                  <FieldDescription>Stored in lowercase</FieldDescription>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -654,13 +690,15 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
               </FieldLabel>
               <Input
                 id="tag-slug-preview"
-                value={tagSlugPreview}
+                value={editingTag ? tagSlugField : tagDerivedSlug}
                 readOnly
                 disabled
                 placeholder="auto from name"
               />
               <FieldDescription>
-                Generated automatically from name
+                {editingTag ?
+                  "Saved slug; a rename updates it only when untouched"
+                : "Generated automatically from name"}
               </FieldDescription>
             </Field>
             <div className="flex justify-end gap-2 pt-2">
@@ -694,8 +732,10 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
           <DialogHeader>
             <DialogTitle>Delete category</DialogTitle>
             <DialogDescription>
-              Wallpapers in this category will become uncategorized. This cannot
-              be undone.
+              {categoryToDelete ?
+                `"${categoryToDelete.name}" has ${categoryToDelete._count.wallpapers} ${categoryToDelete._count.wallpapers === 1 ? "wallpaper" : "wallpapers"}. They will become uncategorized. This cannot be undone.`
+              : "Wallpapers in this category will become uncategorized. This cannot be undone."
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
@@ -721,8 +761,10 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
           <DialogHeader>
             <DialogTitle>Delete tag</DialogTitle>
             <DialogDescription>
-              This tag will be removed from all wallpapers. This cannot be
-              undone.
+              {tagToDelete ?
+                `"${tagToDelete.name}" is used by ${tagToDelete._count.wallpapers} ${tagToDelete._count.wallpapers === 1 ? "wallpaper" : "wallpapers"}. It will be removed from all wallpapers. This cannot be undone.`
+              : "This tag will be removed from all wallpapers. This cannot be undone."
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
