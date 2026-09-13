@@ -47,7 +47,12 @@ const SignInForm = () => {
 
     toast.success("Welcome back!");
     reset();
-    replace("/browse");
+    const { data: session } = await authClient.getSession();
+    if (session?.user.role === "admin") {
+      replace("/admin");
+    } else {
+      replace("/browse");
+    }
   };
 
   return (

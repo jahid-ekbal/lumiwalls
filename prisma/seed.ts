@@ -39,7 +39,7 @@ async function main() {
   if (existingAccount) {
     await prisma.account.update({
       where: { id: existingAccount.id },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, accountId: user.id },
     });
   } else {
     await prisma.account.create({

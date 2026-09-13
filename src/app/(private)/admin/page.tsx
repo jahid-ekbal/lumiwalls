@@ -27,15 +27,10 @@ import prisma from "@/lib/database/dbClient";
 import { createMetadata } from "@/lib/metadata";
 import {
   ArrowRightIcon,
-  BarChart3Icon,
   DownloadIcon,
   EyeIcon,
-  FlagIcon,
-  FolderOpenIcon,
   HourglassIcon,
   ImagesIcon,
-  ShieldIcon,
-  SparklesIcon,
   TagsIcon,
   UsersIcon,
 } from "lucide-react";
@@ -110,51 +105,6 @@ const initials = (name: string, email: string) => {
   }
   return source.slice(0, 2).toUpperCase();
 };
-
-const quickLinks = [
-  {
-    title: "Taxonomy",
-    description: "Categories and tags",
-    url: "/admin/taxonomy",
-    icon: TagsIcon,
-  },
-  {
-    title: "Moderation",
-    description: "Review pending uploads",
-    url: "/admin/moderation",
-    icon: ShieldIcon,
-  },
-  {
-    title: "Users",
-    description: "Roles and bans",
-    url: "/admin/users",
-    icon: UsersIcon,
-  },
-  {
-    title: "Reports",
-    description: "User reports inbox",
-    url: "/admin/reports",
-    icon: FlagIcon,
-  },
-  {
-    title: "Collections",
-    description: "Curated sets",
-    url: "/admin/collections",
-    icon: FolderOpenIcon,
-  },
-  {
-    title: "Featured",
-    description: "Homepage picks",
-    url: "/admin/featured",
-    icon: SparklesIcon,
-  },
-  {
-    title: "Analytics",
-    description: "Traffic and growth",
-    url: "/admin/analytics",
-    icon: BarChart3Icon,
-  },
-];
 
 const AdminDashboardPage = async () => {
   const now = new Date();
@@ -566,34 +516,6 @@ const AdminDashboardPage = async () => {
             </CardContent>
           </Card>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin sections</CardTitle>
-            <CardDescription>Jump to each management area</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {quickLinks.map((link) => (
-                <Link
-                  key={link.url}
-                  href={link.url as Route}
-                  className={buttonVariants({
-                    variant: "outline",
-                    className: "h-auto justify-start p-4",
-                  })}>
-                  <link.icon className="size-5 shrink-0" />
-                  <span className="flex flex-col items-start gap-0.5">
-                    <span className="font-medium">{link.title}</span>
-                    <span className="text-muted-foreground text-xs font-normal">
-                      {link.description}
-                    </span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

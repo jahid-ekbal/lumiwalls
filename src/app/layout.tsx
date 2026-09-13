@@ -3,6 +3,7 @@ import { notoSansHeading, nunitoSans } from "@/lib/fonts";
 import type { LayoutProps } from "@/lib/type";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ const RootLayout = ({ children }: LayoutProps) => {
           attribute={"class"}
           defaultTheme="dark"
           enableSystem={false}>
-          {children}
+          <NuqsAdapter>{children}</NuqsAdapter>
         </ThemeProvider>
       </body>
     </html>

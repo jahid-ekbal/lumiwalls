@@ -63,7 +63,7 @@ See existing examples under `src/components/Auth/`.
 
 - **Primary check**: `bun lint`: runs `eslint` with `eslint-config-next` core-web-vitals + typescript.
 - **Type check**: `bun typecheck`: runs `next typegen && tsc --noEmit` for standalone type checking without a full build.
-- **Secondary / type gate**: `bun run build`. TypeScript errors also surface during the build.
+- **Secondary / type gate**: `bun run build`. TypeScript errors also surface during the build. Never run it while a dev server is listening (check `Get-NetTCPConnection -LocalPort 3000` first); the two conflict, so use `bun lint` alone until the port is free.
 - **Full prod check**: `bun prod`: `prisma generate && eslint && next typegen && tsc --noEmit && next build && next start`. Use before schema or env changes.
 - **UI verification**: Use `playwright-cli` in `--headed` mode for all browser checks. Run `playwright-cli --help` to see commands. Always pass `--headed` (e.g., `playwright-cli open --headed`). Do not use headless for verifications. Never run blocking foreground commands (`bun dev` in the foreground, `next start`, watch mode); they hang the session and the user has to unstick it. Do not start a dev server with `Start-Process` or background jobs; those hang the session too. The working method is a fully detached launch via `Invoke-CimMethod -ClassName Win32_Process -MethodName Create` (returns a PID immediately), then poll readiness with short commands (`Get-Content` on a redirected log, `Get-NetTCPConnection -LocalPort 3000`), and kill the tree with `taskkill /pid <pid> /t /f` when done. If no working launch method exists, ask the user to start the server and give you the URL. When no browser check is needed, default to `bun lint` plus `bun run build` instead.
   - Invoke as `playwright-cli ...` directly, not `bunx playwright-cli ...`.
@@ -71,6 +71,7 @@ See existing examples under `src/components/Auth/`.
   - Core commands from `--help`: `open [url] --headed`, `snapshot [target]`, `eval <func> [target]`, `click <target>`, `fill <target> <text>`, `goto <url>`, `screenshot`, `close`, plus `attach`, `dblclick`, `drag`, `drop`, `hover`, `select`, `upload`, `check/uncheck`, `find`, `dialog-accept/dismiss`, `resize`, `delete-data`. Snapshots return YAML with `ref` handles and console log paths under `.playwright-cli/`.
   - Authenticated flows: dev seed is `prisma/seed.ts` (`ADMIN_EMAIL`/`ADMIN_PASSWORD` default `admin@example.com` / `admin@example.com`, override via `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`, hashed via `src/lib/argon2.ts` `hashPasswordFunction`, `accountId = userId` for `credential` provider). Sign in at `/` by filling `Email`/`Password` textboxes and clicking `Sign In` (`replace("/browse")`) before verifying private routes (`/browse`, `/dashboard`, `/admin/*`, `/settings`, `/upload` redirect to `/` when unauthenticated via `proxy.ts`).
   - Active-state checks use `eval` on `[data-active]` / `[data-ancestor]` (e.g. `document.querySelectorAll('[data-active]')`, `getComputedStyle(e).opacity` for breadcrumb `opacity-60`).
+  - **Clean up after every test run.** Delete any test users/rows created during verification (deleting the `user` cascades its `account` and `session` rows) and remove the `.playwright-cli/` snapshot/console artifacts. Never leave test data behind.
 
 ## Prisma (Prisma 7, custom output)
 

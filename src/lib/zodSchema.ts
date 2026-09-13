@@ -139,3 +139,29 @@ export const tagUpdateSchema = tagCreateSchema.extend({
 });
 
 export type TagUpdateType = z.infer<typeof tagUpdateSchema>;
+
+// ── Browse ─────────────────────────────────────────────
+export const browseSortSchema = z.enum([
+  "newest",
+  "oldest",
+  "views",
+  "downloads",
+]);
+
+export type BrowseSortType = z.infer<typeof browseSortSchema>;
+
+export const browseSearchParamsSchema = z.object({
+  q: z.string().trim().max(100).optional().default(""),
+  category: z.string().trim().max(40).optional().default("all"),
+  sort: browseSortSchema.optional().default("newest"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+  preview: z.string().trim().max(100).optional().default(""),
+});
+
+export type BrowseSearchParamsType = z.infer<typeof browseSearchParamsSchema>;
+
+export const browseDownloadSchema = z.object({
+  wallpaperId: z.string().min(1),
+});
+
+export type BrowseDownloadType = z.infer<typeof browseDownloadSchema>;

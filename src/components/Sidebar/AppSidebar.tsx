@@ -107,15 +107,11 @@ export function AppSidebar() {
                     isAdminDashboard ?
                       path === "/admin"
                     : isActivePath(item.url);
-                  const isAncestor =
-                    isAdminDashboard && !isActive && path.startsWith("/admin/");
 
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
                         isActive={isActive}
-                        className={isAncestor ? "opacity-60" : undefined}
-                        data-ancestor={isAncestor || undefined}
                         render={
                           <Link href={item.url as Route}>
                             <item.icon />
