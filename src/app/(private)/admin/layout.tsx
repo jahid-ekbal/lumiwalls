@@ -10,7 +10,7 @@ const AdminLayout = async ({ children }: LayoutProps) => {
     redirect("/browse");
   }
 
-  return <>{children}</>;
+  return <div className="w-full p-6">{children}</div>;
 };
 
 export default AdminLayout;

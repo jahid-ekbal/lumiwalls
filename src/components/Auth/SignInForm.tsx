@@ -9,8 +9,6 @@ import { authClient } from "@/lib/auth-client";
 import { signInSchema, type SignInType } from "@/lib/zodSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2Icon, LockIcon } from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
@@ -100,8 +98,8 @@ const SignInForm = () => {
         )}
       />
 
-      {/* Remember me + Forgot password */}
-      <div className="flex items-center justify-between">
+      {/* Remember me */}
+      <div className="flex items-center">
         <Controller
           name="rememberMe"
           control={control}
@@ -120,11 +118,6 @@ const SignInForm = () => {
             </Field>
           )}
         />
-        <Link
-          href={"/forgot-password" as Route}
-          className="text-sm underline-offset-4 hover:underline">
-          Forgot password?
-        </Link>
       </div>
 
       {/* Submit button */}

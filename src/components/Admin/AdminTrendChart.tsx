@@ -41,7 +41,9 @@ const AdminTrendChart = ({ data }: { data: TrendPoint[] }) => {
         <CardDescription>Daily totals for the last 30 days</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
+        <ChartContainer
+          config={chartConfig}
+          className="aspect-auto h-64">
           <AreaChart
             accessibilityLayer
             data={data}

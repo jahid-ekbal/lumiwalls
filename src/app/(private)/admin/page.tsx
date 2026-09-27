@@ -228,294 +228,290 @@ const AdminDashboardPage = async () => {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
-      <div className="grid gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              Admin Dashboard
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Platform overview for the last {TREND_DAYS} days
-            </p>
+    <div className="grid gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            Admin Dashboard
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Platform overview for the last {TREND_DAYS} days
+          </p>
+        </div>
+        <Link
+          href={"/admin/analytics" as Route}
+          className={buttonVariants({ variant: "outline" })}>
+          <span>View analytics</span>
+          <ArrowRightIcon />
+        </Link>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {stats.map((stat) => (
+          <Card key={stat.title}>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>{stat.title}</CardTitle>
+                <stat.icon className="text-muted-foreground size-4" />
+              </div>
+              <CardDescription>{stat.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-semibold tracking-tight">
+                {stat.value}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <AdminTrendChart data={trend} />
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Pending moderation</CardTitle>
+              <CardDescription>
+                Oldest first by queue order, latest {PREVIEW_TAKE} shown
+              </CardDescription>
+            </div>
+            <Link
+              href={"/admin/moderation" as Route}
+              className={buttonVariants({
+                variant: "outline",
+                size: "sm",
+              })}>
+              <span>Open moderation</span>
+              <ArrowRightIcon />
+            </Link>
           </div>
-          <Link
-            href={"/admin/analytics" as Route}
-            className={buttonVariants({ variant: "outline" })}>
-            <span>View analytics</span>
-            <ArrowRightIcon />
-          </Link>
-        </div>
+        </CardHeader>
+        <CardContent>
+          {pendingQueue.length === 0 ?
+            <p className="text-muted-foreground py-8 text-center text-sm">
+              No wallpapers awaiting review.
+            </p>
+          : <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Wallpaper</TableHead>
+                  <TableHead>Uploader</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingQueue.map((item) => {
+                  const wallpaper = item.wallpaper;
+                  const thumb =
+                    wallpaper.thumb400Url ??
+                    wallpaper.thumb800Url ??
+                    wallpaper.originalUrl;
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {thumb ?
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={thumb}
+                              alt={wallpaper.title}
+                              className="size-10 shrink-0 rounded-xl object-cover"
+                              loading="lazy"
+                            />
+                          : <div className="bg-muted size-10 shrink-0 rounded-xl" />
+                          }
+                          <div>
+                            <p className="font-medium">{wallpaper.title}</p>
+                            <p className="text-muted-foreground text-xs">
+                              {formatDate(item.createdAt)} in queue
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p>{wallpaper.uploader.name}</p>
+                          <p className="text-muted-foreground text-xs">
+                            {wallpaper.uploader.email} on{" "}
+                            {formatDate(wallpaper.createdAt)}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {wallpaper.category ?
+                            <Badge variant="secondary">
+                              {wallpaper.category.name}
+                            </Badge>
+                          : <span className="text-muted-foreground text-xs">
+                              Uncategorized
+                            </span>
+                          }
+                          {wallpaper.tags.map(({ tag }) => (
+                            <Badge
+                              key={tag.name}
+                              variant="outline">
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{item.status}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          }
+        </CardContent>
+      </Card>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {stats.map((stat) => (
-            <Card key={stat.title}>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle>{stat.title}</CardTitle>
-                  <stat.icon className="text-muted-foreground size-4" />
-                </div>
-                <CardDescription>{stat.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tracking-tight">
-                  {stat.value}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <AdminTrendChart data={trend} />
-
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <CardTitle>Pending moderation</CardTitle>
-                <CardDescription>
-                  Oldest first by queue order, latest {PREVIEW_TAKE} shown
-                </CardDescription>
+                <CardTitle>Recent wallpapers</CardTitle>
+                <CardDescription>Latest {PREVIEW_TAKE} uploads</CardDescription>
               </div>
               <Link
-                href={"/admin/moderation" as Route}
+                href={"/browse" as Route}
                 className={buttonVariants({
-                  variant: "outline",
+                  variant: "ghost",
                   size: "sm",
                 })}>
-                <span>Open moderation</span>
+                <span>Browse all</span>
                 <ArrowRightIcon />
               </Link>
             </div>
           </CardHeader>
           <CardContent>
-            {pendingQueue.length === 0 ?
+            {recentWallpapers.length === 0 ?
               <p className="text-muted-foreground py-8 text-center text-sm">
-                No wallpapers awaiting review.
+                No wallpapers yet.
               </p>
             : <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Wallpaper</TableHead>
-                    <TableHead>Uploader</TableHead>
-                    <TableHead>Category</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendingQueue.map((item) => {
-                    const wallpaper = item.wallpaper;
-                    const thumb =
-                      wallpaper.thumb400Url ??
-                      wallpaper.thumb800Url ??
-                      wallpaper.originalUrl;
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {thumb ?
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={thumb}
-                                alt={wallpaper.title}
-                                className="size-10 shrink-0 rounded-xl object-cover"
-                                loading="lazy"
-                              />
-                            : <div className="bg-muted size-10 shrink-0 rounded-xl" />
-                            }
-                            <div>
-                              <p className="font-medium">{wallpaper.title}</p>
-                              <p className="text-muted-foreground text-xs">
-                                {formatDate(item.createdAt)} in queue
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p>{wallpaper.uploader.name}</p>
-                            <p className="text-muted-foreground text-xs">
-                              {wallpaper.uploader.email} on{" "}
-                              {formatDate(wallpaper.createdAt)}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap items-center gap-1">
-                            {wallpaper.category ?
-                              <Badge variant="secondary">
-                                {wallpaper.category.name}
-                              </Badge>
-                            : <span className="text-muted-foreground text-xs">
-                                Uncategorized
-                              </span>
-                            }
-                            {wallpaper.tags.map(({ tag }) => (
-                              <Badge
-                                key={tag.name}
-                                variant="outline">
-                                {tag.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{item.status}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {recentWallpapers.map((wallpaper) => (
+                    <TableRow key={wallpaper.id}>
+                      <TableCell>
+                        <p className="font-medium">{wallpaper.title}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {wallpaper.uploader.email} on{" "}
+                          {formatDate(wallpaper.createdAt)}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          <Badge
+                            variant={
+                              wallpaper.isApproved ? "secondary" : "outline"
+                            }>
+                            {wallpaper.isApproved ? "Approved" : "Unapproved"}
+                          </Badge>
+                          {wallpaper.moderationQueue ?
+                            <Badge variant="outline">
+                              {wallpaper.moderationQueue.status}
+                            </Badge>
+                          : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             }
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle>Recent wallpapers</CardTitle>
-                  <CardDescription>
-                    Latest {PREVIEW_TAKE} uploads
-                  </CardDescription>
-                </div>
-                <Link
-                  href={"/browse" as Route}
-                  className={buttonVariants({
-                    variant: "ghost",
-                    size: "sm",
-                  })}>
-                  <span>Browse all</span>
-                  <ArrowRightIcon />
-                </Link>
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle>Recent users</CardTitle>
+                <CardDescription>
+                  Latest {PREVIEW_TAKE} accounts
+                </CardDescription>
               </div>
-            </CardHeader>
-            <CardContent>
-              {recentWallpapers.length === 0 ?
-                <p className="text-muted-foreground py-8 text-center text-sm">
-                  No wallpapers yet.
-                </p>
-              : <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Wallpaper</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentWallpapers.map((wallpaper) => (
-                      <TableRow key={wallpaper.id}>
-                        <TableCell>
-                          <p className="font-medium">{wallpaper.title}</p>
-                          <p className="text-muted-foreground text-xs">
-                            {wallpaper.uploader.email} on{" "}
-                            {formatDate(wallpaper.createdAt)}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            <Badge
-                              variant={
-                                wallpaper.isApproved ? "secondary" : "outline"
-                              }>
-                              {wallpaper.isApproved ? "Approved" : "Unapproved"}
-                            </Badge>
-                            {wallpaper.moderationQueue ?
-                              <Badge variant="outline">
-                                {wallpaper.moderationQueue.status}
-                              </Badge>
+              <Link
+                href={"/admin/users" as Route}
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "sm",
+                })}>
+                <span>Manage users</span>
+                <ArrowRightIcon />
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {recentUsers.length === 0 ?
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No users yet.
+              </p>
+            : <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Joined</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar size="sm">
+                            {user.image ?
+                              <AvatarImage
+                                src={user.image}
+                                alt={user.name}
+                              />
                             : null}
+                            <AvatarFallback>
+                              {initials(user.name, user.email)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.name}</p>
+                            <p className="text-muted-foreground text-xs">
+                              {user.email}
+                            </p>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              }
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle>Recent users</CardTitle>
-                  <CardDescription>
-                    Latest {PREVIEW_TAKE} accounts
-                  </CardDescription>
-                </div>
-                <Link
-                  href={"/admin/users" as Route}
-                  className={buttonVariants({
-                    variant: "ghost",
-                    size: "sm",
-                  })}>
-                  <span>Manage users</span>
-                  <ArrowRightIcon />
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {recentUsers.length === 0 ?
-                <p className="text-muted-foreground py-8 text-center text-sm">
-                  No users yet.
-                </p>
-              : <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Joined</TableHead>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          <Badge
+                            variant={
+                              user.role === "admin" ? "default" : "secondary"
+                            }>
+                            {user.role ?? "user"}
+                          </Badge>
+                          {user.banned ?
+                            <Badge variant="destructive">Banned</Badge>
+                          : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatDate(user.createdAt)}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar size="sm">
-                              {user.image ?
-                                <AvatarImage
-                                  src={user.image}
-                                  alt={user.name}
-                                />
-                              : null}
-                              <AvatarFallback>
-                                {initials(user.name, user.email)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{user.name}</p>
-                              <p className="text-muted-foreground text-xs">
-                                {user.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            <Badge
-                              variant={
-                                user.role === "admin" ? "default" : "secondary"
-                              }>
-                              {user.role ?? "user"}
-                            </Badge>
-                            {user.banned ?
-                              <Badge variant="destructive">Banned</Badge>
-                            : null}
-                          </div>
-                        </TableCell>
-                        <TableCell>{formatDate(user.createdAt)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              }
-            </CardContent>
-          </Card>
-        </div>
+                  ))}
+                </TableBody>
+              </Table>
+            }
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
