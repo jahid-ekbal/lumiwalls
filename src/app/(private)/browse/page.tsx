@@ -3,6 +3,7 @@ import BrowseGrid from "@/components/Browse/BrowseGrid";
 import BrowsePagination from "@/components/Browse/BrowsePagination";
 import WallpaperPreview from "@/components/Browse/WallpaperPreview";
 import type { BrowseCategoryOption } from "@/components/Browse/browse-types";
+import { Skeleton } from "@/components/shadcnui/skeleton";
 import prisma from "@/lib/database/dbClient";
 import { createMetadata } from "@/lib/metadata";
 import { browseSearchParamsSchema } from "@/lib/zodSchema";
@@ -183,7 +184,14 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
             details.
           </p>
         </div>
-        <Suspense>
+        <Suspense
+          fallback={
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Skeleton className="h-9 flex-1" />
+              <Skeleton className="h-9 w-full sm:w-56" />
+              <Skeleton className="h-9 w-full sm:w-48" />
+            </div>
+          }>
           <BrowseFilters
             categories={categoryOptions}
             total={total}
@@ -196,18 +204,36 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
             <p className="text-muted-foreground py-12 text-center text-sm">
               No wallpapers found.
             </p>
-          : <Suspense>
+          : <Suspense
+              fallback={
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({ length: 8 }, (_, index) => (
+                    <div
+                      key={index}
+                      className="grid gap-2">
+                      <Skeleton className="aspect-4/3 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              }>
               <BrowseGrid wallpapers={wallpapers} />
             </Suspense>
           }
         </div>
-        <Suspense>
+        <Suspense
+          fallback={
+            <div className="flex justify-center gap-2">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          }>
           <BrowsePagination
             page={page}
             totalPages={totalPages}
           />
         </Suspense>
-        <Suspense>
+        <Suspense fallback={null}>
           <WallpaperPreview
             wallpapers={wallpapers}
             previewWallpaper={previewWallpaper}

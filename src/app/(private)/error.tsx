@@ -2,25 +2,25 @@
 
 import BoundaryErrorCard from "@/components/Errors/BoundaryErrorCard";
 
-type BrowseErrorProps = {
+type PrivateErrorProps = {
   error: Error & { digest?: string };
   reset?: () => void;
   unstable_retry?: () => void;
 };
 
-const BrowseError = ({ error, reset, unstable_retry }: BrowseErrorProps) => {
+const PrivateError = ({ error, reset, unstable_retry }: PrivateErrorProps) => {
   return (
     <BoundaryErrorCard
-      title="Could not load wallpapers"
-      description="Something went wrong while loading browse results. Please try again."
+      title="Could not load this section"
+      description="Something went wrong while loading this page. Please try again."
       error={error}
       reset={reset}
       unstable_retry={unstable_retry}
-      route="/browse"
+      route="/private"
       backHref="/browse"
-      backLabel="Clear filters"
+      backLabel="Back to browse"
     />
   );
 };
 
-export default BrowseError;
+export default PrivateError;

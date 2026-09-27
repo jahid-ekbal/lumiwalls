@@ -148,6 +148,10 @@ See existing examples under `src/components/Auth/`.
 
 ## Misc
 
+- Next 16.2 error boundaries receive `unstable_retry` (re-fetches and re-renders) instead of only legacy `reset` (re-renders without refetch). Accept both props as optional in `error.tsx` so recovery works across versions.
+- Nested `not-found.tsx` files only handle `notFound()` calls inside their own segment. Unmatched URLs need a root `src/app/not-found.tsx`.
+- Colocated `_components` folders under a route segment are route-private and never become URLs. Use them for streamed async section components.
+
 - ESLint ignores: `.next/**`, `out/**`, `build/**`, `next-env.d.ts`, `generated/**`.
 - `.env` is gitignored; `.env.example` is the committed template. Do not commit secrets.
 - `CHECKPOINT_DISABLE=1` is set to silence Prisma telemetry.
