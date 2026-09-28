@@ -30,7 +30,7 @@ const UploadPage = async () => {
   ]);
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="w-full p-6">
       <Card>
         <CardHeader>
           <CardTitle>Upload Wallpaper</CardTitle>

@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/shadcnui/skeleton";
 
 const UploadLoading = () => {
   return (
-    <div className="mx-auto w-full max-w-2xl p-6">
+    <div className="w-full p-6">
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-44" />

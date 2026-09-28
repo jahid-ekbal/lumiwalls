@@ -89,6 +89,9 @@ const getAspectRatioLabel = (width: number, height: number): string => {
 
 const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropzoneRef = useRef<HTMLDivElement>(null);
+  const replaceButtonRef = useRef<HTMLButtonElement>(null);
+  const isFirstPreviewRender = useRef(true);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -141,6 +144,18 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     img.src = previewUrl;
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (isFirstPreviewRender.current) {
+      isFirstPreviewRender.current = false;
+      return;
+    }
+    if (previewUrl) {
+      replaceButtonRef.current?.focus();
+    } else {
+      dropzoneRef.current?.focus();
+    }
+  }, [previewUrl]);
+
   const validateAndSetFile = useCallback(
     (file: File): boolean => {
       const isAllowedType = (ALLOWED_MIME_TYPES as readonly string[]).includes(
@@ -185,6 +200,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     setSelectedFile(null);
     setDimensions(null);
     setErrorMsg("");
+    setIsDragOver(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (stage === "error") setStage("idle");
   }, [clearPreviewUrl, previewUrl, stage]);
@@ -351,8 +367,6 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
         return;
       }
 
-      setUploadProgress(100);
-      setStage("done");
       toast.success("Wallpaper uploaded successfully!");
 
       reset({
@@ -362,12 +376,9 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       });
       setSelectedTagIds([]);
       setTagSearch("");
-
-      setTimeout(() => {
-        handleClearFile();
-        setUploadProgress(0);
-        setStage("idle");
-      }, 1500);
+      handleClearFile();
+      setUploadProgress(0);
+      setStage("idle");
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Unexpected error during upload";
@@ -396,244 +407,283 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       onSubmit={handleSubmit(uploadHandler)}
       className="grid gap-6"
       noValidate>
-      {/* Dropzone */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            fileInputRef.current?.click();
-          }
-        }}
-        aria-label="Upload image dropzone"
-        className={
-          isDragOver ?
-            "border-primary bg-primary/5 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
-          : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
-        }>
-        <div className="bg-muted rounded-full p-3">
-          <UploadIcon className="text-muted-foreground size-6" />
-        </div>
-        <div className="grid gap-1">
-          <p className="text-sm font-medium">
-            Drag and drop image here, or click to browse
-          </p>
-          <p className="text-muted-foreground text-xs">
-            JPEG, PNG, WebP, AVIF up to 50MB
-          </p>
-        </div>
-        {selectedFile && (
-          <p className="text-muted-foreground text-xs">
-            Selected: {selectedFile.name}
-          </p>
-        )}
-      </div>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/avif"
-        className="hidden"
-        tabIndex={-1}
-        onChange={handleFileInputChange}
-      />
-
-      {/* Preview */}
-      {previewUrl && selectedFile && (
-        <div className="bg-card grid gap-3 overflow-hidden rounded-2xl border p-3">
-          <div className="relative overflow-hidden rounded-xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt="Preview"
-              className="h-64 w-full object-cover"
-            />
-            {aspectLabel && (
-              <Badge className="absolute top-2 right-2 backdrop-blur">
-                {aspectLabel}
-              </Badge>
-            )}
-            <Badge
-              variant="secondary"
-              className="absolute top-2 left-2 backdrop-blur">
-              <ImageIcon className="size-3" />
-              Preview
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {selectedFile.name}
-              </p>
-              <p className="text-muted-foreground text-xs">
-                {formatFileSize(selectedFile.size)} • {selectedFile.type}
-                {dimensions ?
-                  ` • ${dimensions.width} x ${dimensions.height}`
-                : ""}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleClearFile}>
-              <XIcon />
-              Clear
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Title */}
-      <Controller
-        name="title"
-        control={control}
-        render={({ field, fieldState }) => (
-          <Field data-invalid={fieldState.invalid}>
-            <FieldLabel htmlFor={field.name}>Title</FieldLabel>
-            <Input
-              {...field}
-              id={field.name}
-              aria-invalid={fieldState.invalid}
-              placeholder="Enter wallpaper title"
-              autoComplete="off"
-            />
-            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-          </Field>
-        )}
-      />
-
-      {/* Description */}
-      <Controller
-        name="description"
-        control={control}
-        render={({ field, fieldState }) => (
-          <Field data-invalid={fieldState.invalid}>
-            <FieldLabel htmlFor={field.name}>Description</FieldLabel>
-            <Textarea
-              {...field}
-              id={field.name}
-              aria-invalid={fieldState.invalid}
-              placeholder="Describe your wallpaper (optional)"
-              rows={3}
-            />
-            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-          </Field>
-        )}
-      />
-
-      {/* Category */}
-      <Controller
-        name="categoryId"
-        control={control}
-        render={({ field, fieldState }) => (
-          <Field data-invalid={fieldState.invalid}>
-            <FieldLabel htmlFor={field.name}>Category</FieldLabel>
-            <Select
-              value={field.value}
-              onValueChange={field.onChange}>
-              <SelectTrigger
-                id={field.name}
-                aria-invalid={fieldState.invalid}
-                className="w-full">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem
-                    key={category.id}
-                    value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-          </Field>
-        )}
-      />
-
-      {/* Tags - strict selection only */}
-      <Field>
-        <FieldLabel>Tags</FieldLabel>
-        <FieldDescription>
-          Select from admin-created tags only, max 10. Search to filter.
-        </FieldDescription>
-        {availableTags.length === 0 ?
-          <Alert>
-            <AlertTitle>No tags available</AlertTitle>
-            <AlertDescription>
-              An admin needs to create tags in Taxonomy before you can tag
-              wallpapers.
-            </AlertDescription>
-          </Alert>
-        : <>
-            <div className="relative">
-              <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-              <Input
-                placeholder="Search tags"
-                value={tagSearch}
-                onChange={(e) => setTagSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            {selectedTags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedTags.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant="secondary"
-                    className="gap-1 pr-1">
-                    {tag.name}
-                    <button
-                      type="button"
-                      aria-label={`Remove tag ${tag.name}`}
-                      onClick={() => removeTag(tag.id)}
-                      className="hover:bg-muted ml-1 rounded-full p-0.5">
-                      <XIcon className="size-3" />
-                    </button>
-                  </Badge>
-                ))}
+      <div className="grid items-start gap-6 lg:grid-cols-12">
+        <div className="grid gap-6 lg:col-span-7">
+          {!selectedFile && (
+            <div
+              ref={dropzoneRef}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              aria-label="Upload image dropzone"
+              className={
+                isDragOver ?
+                  "border-primary bg-primary/5 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors lg:min-h-96"
+                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors lg:min-h-96"
+              }>
+              <div className="bg-muted rounded-full p-3">
+                <UploadIcon className="text-muted-foreground size-6" />
               </div>
-            )}
-            <div className="bg-muted/30 max-h-48 overflow-y-auto rounded-xl border p-2">
-              {filteredTags.length === 0 ?
-                <p className="text-muted-foreground py-4 text-center text-xs">
-                  No matching tags
+              <div className="grid gap-1">
+                <p className="text-sm font-medium">
+                  Drag and drop image here, or click to browse
                 </p>
-              : <div className="grid gap-1">
-                  {filteredTags.map((tag) => {
-                    const checked = selectedTagIds.includes(tag.id);
-                    return (
-                      <label
-                        key={tag.id}
-                        className="hover:bg-accent flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={() => toggleTag(tag.id)}
-                        />
-                        <span className="flex-1">{tag.name}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {tag.slug}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              }
+                <p className="text-muted-foreground text-xs">
+                  JPEG, PNG, WebP, AVIF up to 50MB
+                </p>
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">
-              {selectedTagIds.length} / 10 selected
-            </p>
-          </>
-        }
-      </Field>
+          )}
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            className="hidden"
+            tabIndex={-1}
+            onChange={handleFileInputChange}
+          />
+
+          {/* Preview */}
+          {previewUrl && selectedFile && (
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={
+                isDragOver ?
+                  "bg-card ring-primary grid gap-3 overflow-hidden rounded-2xl border p-3 ring-2"
+                : "bg-card grid gap-3 overflow-hidden rounded-2xl border p-3"
+              }>
+              <button
+                ref={replaceButtonRef}
+                type="button"
+                onClick={() => {
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                  fileInputRef.current?.click();
+                }}
+                aria-label="Replace image"
+                className="relative block w-full cursor-pointer overflow-hidden rounded-xl">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="h-80 w-full object-cover lg:h-96"
+                />
+                {aspectLabel && (
+                  <Badge className="absolute top-2 right-2 backdrop-blur">
+                    {aspectLabel}
+                  </Badge>
+                )}
+                <Badge
+                  variant="secondary"
+                  className="absolute top-2 left-2 backdrop-blur">
+                  <ImageIcon className="size-3" />
+                  Preview
+                </Badge>
+              </button>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {formatFileSize(selectedFile.size)} • {selectedFile.type}
+                    {dimensions ?
+                      ` • ${dimensions.width} x ${dimensions.height}`
+                    : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                      fileInputRef.current?.click();
+                    }}>
+                    <UploadIcon />
+                    Replace
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearFile}>
+                    <XIcon />
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Click image or Replace to swap, or drop a new file here.
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="grid content-start gap-6 lg:col-span-5">
+          {/* Title */}
+          <Controller
+            name="title"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={field.name}>Title</FieldLabel>
+                <Input
+                  {...field}
+                  id={field.name}
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Enter wallpaper title"
+                  autoComplete="off"
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          {/* Description */}
+          <Controller
+            name="description"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={field.name}>Description</FieldLabel>
+                <Textarea
+                  {...field}
+                  id={field.name}
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Describe your wallpaper (optional)"
+                  rows={3}
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          {/* Category */}
+          <Controller
+            name="categoryId"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={field.name}>Category</FieldLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}>
+                  <SelectTrigger
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    className="w-full">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem
+                        key={category.id}
+                        value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          {/* Tags - strict selection only */}
+          <Field>
+            <FieldLabel>Tags</FieldLabel>
+            <FieldDescription>
+              Select from admin-created tags only, max 10. Search to filter.
+            </FieldDescription>
+            {availableTags.length === 0 ?
+              <Alert>
+                <AlertTitle>No tags available</AlertTitle>
+                <AlertDescription>
+                  An admin needs to create tags in Taxonomy before you can tag
+                  wallpapers.
+                </AlertDescription>
+              </Alert>
+            : <>
+                <div className="relative">
+                  <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                  <Input
+                    placeholder="Search tags"
+                    value={tagSearch}
+                    onChange={(e) => setTagSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant="secondary"
+                        className="gap-1 pr-1">
+                        {tag.name}
+                        <button
+                          type="button"
+                          aria-label={`Remove tag ${tag.name}`}
+                          onClick={() => removeTag(tag.id)}
+                          className="hover:bg-muted ml-1 rounded-full p-0.5">
+                          <XIcon className="size-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="bg-muted/30 max-h-48 overflow-y-auto rounded-xl border p-2">
+                  {filteredTags.length === 0 ?
+                    <p className="text-muted-foreground py-4 text-center text-xs">
+                      No matching tags
+                    </p>
+                  : <div className="grid gap-1">
+                      {filteredTags.map((tag) => {
+                        const checked = selectedTagIds.includes(tag.id);
+                        return (
+                          <label
+                            key={tag.id}
+                            className="hover:bg-accent flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleTag(tag.id)}
+                            />
+                            <span className="flex-1">{tag.name}</span>
+                            <span className="text-muted-foreground text-xs">
+                              {tag.slug}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  }
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {selectedTagIds.length} / 10 selected
+                </p>
+              </>
+            }
+          </Field>
+        </div>
+      </div>
       {/* Progress */}
       {(stage === "uploading" || stage === "processing") && (
         <div className="grid gap-2">
@@ -658,16 +708,6 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
         <Alert variant="destructive">
           <AlertTitle>Upload error</AlertTitle>
           <AlertDescription>{errorMsg}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Done Alert */}
-      {stage === "done" && (
-        <Alert>
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>
-            Wallpaper uploaded and queued for moderation
-          </AlertDescription>
         </Alert>
       )}
 

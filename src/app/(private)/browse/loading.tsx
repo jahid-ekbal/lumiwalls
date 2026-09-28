@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/shadcnui/skeleton";
 
 const BrowseLoading = () => {
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="w-full p-6">
       <div className="grid gap-6">
         <div className="grid gap-2">
           <Skeleton className="h-8 w-40" />

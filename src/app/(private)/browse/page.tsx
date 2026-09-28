@@ -173,7 +173,7 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
   ]);
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="w-full p-6">
       <div className="grid gap-6">
         <div className="grid gap-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
