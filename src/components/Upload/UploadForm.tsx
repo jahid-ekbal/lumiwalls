@@ -323,8 +323,14 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
           },
         });
       } catch (err) {
-        const msg =
+        const rawMsg =
           err instanceof Error ? err.message : "Failed to upload file";
+        const isConnectionFailure =
+          err instanceof TypeError || rawMsg.includes("Failed to fetch");
+        const msg =
+          isConnectionFailure ?
+            "Could not reach object storage. The storage bucket may be blocking browser uploads, please try again or contact an admin."
+          : rawMsg;
         setErrorMsg(msg);
         toast.error(msg);
         setStage("error");

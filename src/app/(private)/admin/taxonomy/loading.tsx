@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/shadcnui/skeleton";
 
 const TaxonomyLoading = () => {
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6 p-6">
+    <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="grid gap-2">
           <Skeleton className="h-7 w-44" />

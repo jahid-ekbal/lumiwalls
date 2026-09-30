@@ -78,10 +78,11 @@ const DashboardModeration = async () => {
             <TableBody>
               {pendingQueue.map((item) => {
                 const wallpaper = item.wallpaper;
-                const thumb =
+                const rawThumb =
                   wallpaper.thumb400Url ??
                   wallpaper.thumb800Url ??
                   wallpaper.originalUrl;
+                const thumb = rawThumb?.startsWith("http") ? rawThumb : null;
                 return (
                   <TableRow key={item.id}>
                     <TableCell>

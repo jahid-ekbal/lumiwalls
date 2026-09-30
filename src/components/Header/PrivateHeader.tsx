@@ -70,10 +70,12 @@ const PrivateHeader = () => {
                 size="sm"
                 className="h-8 w-8 rounded-full p-0">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage
-                    src={user?.image ?? "/placeholder.svg"}
-                    alt={user?.name ?? "User avatar"}
-                  />
+                  {user?.image ?
+                    <AvatarImage
+                      src={user.image}
+                      alt={user?.name ?? "User avatar"}
+                    />
+                  : null}
                   <AvatarFallback>
                     {isPending ?
                       ".."

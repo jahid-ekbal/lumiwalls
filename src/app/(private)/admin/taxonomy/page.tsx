@@ -32,7 +32,7 @@ const TaxonomyFallback = () => {
 
 const TaxonomyPage = () => {
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="grid gap-6">
       <Suspense fallback={<TaxonomyFallback />}>
         <TaxonomyContent />
       </Suspense>
