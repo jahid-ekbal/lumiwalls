@@ -1,48 +1,82 @@
 "use server";
 
 import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { Prisma } from "@generated/prisma/client";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import { serverEnv } from "@/lib/env/serverEnv";
-import { buildKey, sanitizeFileName } from "@/lib/fileStorage";
+import {
+  buildKey,
+  deleteManyFromS3,
+  sanitizeFileName,
+} from "@/lib/fileStorage";
+import { slugify } from "@/lib/slugify";
+import { getOneHourAgo } from "@/lib/uploadExpiry";
 import { s3Client } from "@/lib/storage/b2Client";
 import { generateThumbsAndUpload } from "@/lib/storage/imageProcessor";
 import { generatePresignedUploadUrl } from "@/lib/storage/presignedUrl";
-import { finalizeUploadSchema, initiateUploadSchema } from "@/lib/zodSchema";
+import {
+  MAX_UPLOAD_SIZE,
+  finalizeUploadSchema,
+  initiateUploadSchema,
+} from "@/lib/zodSchema";
 
 const buildPublicUrl = (key: string): string => {
-  const base = serverEnv.S3_PUBLIC_URL ?? serverEnv.S3_ENDPOINT;
-  return `${base.replace(/\/$/, "")}/${key.replace(/^\//, "")}`;
+  const base = serverEnv.BETTER_AUTH_URL;
+  return `${base.replace(/\/$/, "")}/api/images/${key.replace(/^\//, "")}`;
 };
-
-const slugify = (text: string): string =>
-  text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80);
 
 const deriveThumbKeys = (originalKey: string) => {
   const parts = originalKey.split("/");
   const fileName = parts[parts.length - 1] ?? "";
-  const uuid =
-    (
-      fileName
-        .slice(0, 36)
-        .match(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-        )
-    ) ?
-      fileName.slice(0, 36)
-    : (fileName.split("-")[0] ?? crypto.randomUUID());
+  const match = fileName.match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+  );
+  const uuid = match?.[0] ?? (fileName.split("-")[0] || crypto.randomUUID());
   const base = parts.slice(0, -1).join("/");
   return {
     thumb400: `${base}/thumb-400-${uuid}.webp`,
     thumb800: `${base}/thumb-800-${uuid}.webp`,
     thumb1920: `${base}/thumb-1920-${uuid}.webp`,
   };
+};
+
+const deleteWallpaperOrphan = async (
+  wallpaperId: string,
+  s3Keys: string[],
+): Promise<void> => {
+  if (s3Keys.length > 0) {
+    await deleteManyFromS3(s3Keys);
+  }
+  try {
+    await prisma.wallpaper.delete({ where: { id: wallpaperId } });
+  } catch {
+    return;
+  }
+};
+
+const cleanupStaleUploads = async (userId: string): Promise<void> => {
+  const oneHourAgo = getOneHourAgo();
+  const stale = await prisma.wallpaper.findMany({
+    where: {
+      uploaderId: userId,
+      createdAt: { lt: oneHourAgo },
+      thumb400Url: null,
+      moderationQueue: { status: "PENDING" },
+    },
+    select: { id: true, originalUrl: true },
+    take: 20,
+  });
+  for (const row of stale) {
+    const keys = row.originalUrl ? [row.originalUrl] : [];
+    await deleteWallpaperOrphan(row.id, keys);
+  }
+};
+
+const buildWallpaperSlug = (title: string): string => {
+  const base = slugify(title) || "wallpaper";
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`;
 };
 
 export async function initiateUpload(input: unknown) {
@@ -66,17 +100,20 @@ export async function initiateUpload(input: unknown) {
     title,
     description,
     categoryId,
-    tagIds,
+    tagIds: rawTagIds,
     fileName,
     mimeType,
-    fileSize,
   } = parsed.data;
+  const tagIds = [...new Set(rawTagIds)];
 
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  await cleanupStaleUploads(session.user.id);
+
+  const oneHourAgo = getOneHourAgo();
   const recentCount = await prisma.wallpaper.count({
     where: {
       uploaderId: session.user.id,
       createdAt: { gte: oneHourAgo },
+      thumb400Url: { not: null },
     },
   });
   if (recentCount >= 5) {
@@ -102,44 +139,70 @@ export async function initiateUpload(input: unknown) {
 
   const sanitized = sanitizeFileName(fileName);
   const keys = buildKey(session.user.id, sanitized);
-  const slug = `${slugify(title)}-${crypto.randomUUID().slice(0, 8)}`;
 
-  const wallpaper = await prisma.wallpaper.create({
-    data: {
-      title,
-      slug,
-      description: description ?? null,
-      originalUrl: keys.original,
-      categoryId,
-      uploaderId: session.user.id,
-      isPublic: true,
-      isApproved: false,
-      tags: {
-        create: tagIds.map((tagId) => ({ tagId })),
+  let wallpaper: { id: string; slug: string };
+  try {
+    let slug = buildWallpaperSlug(title);
+    let attempts = 0;
+    for (;;) {
+      try {
+        const created = await prisma.wallpaper.create({
+          data: {
+            title,
+            slug,
+            description: description ?? null,
+            originalUrl: keys.original,
+            categoryId,
+            uploaderId: session.user.id,
+            isPublic: true,
+            isApproved: false,
+            tags: {
+              create: tagIds.map((tagId) => ({ tagId })),
+            },
+            moderationQueue: {
+              create: { status: "PENDING" },
+            },
+          },
+          select: { id: true, slug: true },
+        });
+        wallpaper = created;
+        break;
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002" &&
+          attempts < 3
+        ) {
+          attempts += 1;
+          slug = buildWallpaperSlug(title);
+          continue;
+        }
+        throw error;
+      }
+    }
+  } catch {
+    return { success: false as const, error: "STORAGE_ERROR" };
+  }
+
+  try {
+    const { url, key } = await generatePresignedUploadUrl(
+      keys.original,
+      mimeType,
+    );
+    return {
+      success: true as const,
+      data: {
+        wallpaperId: wallpaper.id,
+        slug: wallpaper.slug,
+        key,
+        url,
+        expiresIn: 300,
       },
-      moderationQueue: {
-        create: { status: "PENDING" },
-      },
-    },
-  });
-
-  const { url, key } = await generatePresignedUploadUrl(
-    keys.original,
-    mimeType,
-  );
-
-  void fileSize;
-
-  return {
-    success: true as const,
-    data: {
-      wallpaperId: wallpaper.id,
-      slug: wallpaper.slug,
-      key,
-      url,
-      expiresIn: 300,
-    },
-  };
+    };
+  } catch {
+    await deleteWallpaperOrphan(wallpaper.id, []);
+    return { success: false as const, error: "STORAGE_ERROR" };
+  }
 }
 
 export async function finalizeUpload(input: unknown) {
@@ -172,6 +235,27 @@ export async function finalizeUpload(input: unknown) {
   if (wallpaper.uploaderId !== session.user.id) {
     return { success: false as const, error: "FORBIDDEN" };
   }
+
+  const thumbKeys = deriveThumbKeys(key);
+  const expectedOriginalUrl = buildPublicUrl(key);
+  const isAlreadyFinalized =
+    wallpaper.originalUrl === expectedOriginalUrl &&
+    wallpaper.thumb400Url !== null;
+
+  if (isAlreadyFinalized) {
+    return {
+      success: true as const,
+      data: {
+        wallpaperId: wallpaper.id,
+        slug: wallpaper.slug,
+        originalUrl: wallpaper.originalUrl,
+        thumb400Url: wallpaper.thumb400Url,
+        thumb800Url: wallpaper.thumb800Url,
+        thumb1920Url: wallpaper.thumb1920Url,
+      },
+    };
+  }
+
   if (wallpaper.originalUrl !== key) {
     return { success: false as const, error: "KEY_MISMATCH" };
   }
@@ -184,15 +268,23 @@ export async function finalizeUpload(input: unknown) {
     });
     const response = await s3Client.send(command);
     if (!response.Body) {
+      await deleteWallpaperOrphan(wallpaperId, [key]);
       return { success: false as const, error: "OBJECT_NOT_FOUND" };
     }
     const byteArray = await response.Body.transformToByteArray();
     objectBuffer = Buffer.from(byteArray);
   } catch {
+    await deleteWallpaperOrphan(wallpaperId, [key]);
     return { success: false as const, error: "OBJECT_NOT_FOUND" };
   }
 
-  const thumbKeys = deriveThumbKeys(key);
+  if (
+    objectBuffer.byteLength < 1 ||
+    objectBuffer.byteLength > MAX_UPLOAD_SIZE
+  ) {
+    await deleteWallpaperOrphan(wallpaperId, [key]);
+    return { success: false as const, error: "FILE_TOO_LARGE" };
+  }
 
   let processed: {
     blurDataUrl: string;
@@ -208,6 +300,12 @@ export async function finalizeUpload(input: unknown) {
   try {
     processed = await generateThumbsAndUpload(objectBuffer, thumbKeys);
   } catch (error) {
+    await deleteWallpaperOrphan(wallpaperId, [
+      key,
+      thumbKeys.thumb400,
+      thumbKeys.thumb800,
+      thumbKeys.thumb1920,
+    ]);
     return {
       success: false as const,
       error: "PROCESSING_FAILED",
@@ -220,25 +318,35 @@ export async function finalizeUpload(input: unknown) {
   const publicThumb800 = buildPublicUrl(thumbKeys.thumb800);
   const publicThumb1920 = buildPublicUrl(thumbKeys.thumb1920);
 
-  const updated = await prisma.wallpaper.update({
-    where: { id: wallpaperId },
-    data: {
-      originalUrl: publicOriginalUrl,
-      thumb400Url: publicThumb400,
-      thumb800Url: publicThumb800,
-      thumb1920Url: publicThumb1920,
-      blurDataUrl: processed.blurDataUrl,
-      width: processed.metadata.width,
-      height: processed.metadata.height,
-      format: processed.metadata.format,
-      fileSize: processed.metadata.fileSize,
-      aspectRatio: processed.aspectRatio,
-      aspectRatioValue:
-        processed.metadata.width && processed.metadata.height ?
-          processed.metadata.width / processed.metadata.height
-        : null,
-    },
-  });
+  let updated;
+  try {
+    updated = await prisma.wallpaper.update({
+      where: { id: wallpaperId },
+      data: {
+        originalUrl: publicOriginalUrl,
+        thumb400Url: publicThumb400,
+        thumb800Url: publicThumb800,
+        thumb1920Url: publicThumb1920,
+        blurDataUrl: processed.blurDataUrl,
+        width: processed.metadata.width,
+        height: processed.metadata.height,
+        format: processed.metadata.format,
+        fileSize: processed.metadata.fileSize,
+        aspectRatio: processed.aspectRatio,
+        aspectRatioValue:
+          processed.metadata.width && processed.metadata.height ?
+            processed.metadata.width / processed.metadata.height
+          : null,
+      },
+    });
+  } catch {
+    await deleteManyFromS3([
+      thumbKeys.thumb400,
+      thumbKeys.thumb800,
+      thumbKeys.thumb1920,
+    ]);
+    return { success: false as const, error: "STORAGE_ERROR" };
+  }
 
   if (updated.pHash) {
     const existingWithHash = await prisma.wallpaper.findMany({

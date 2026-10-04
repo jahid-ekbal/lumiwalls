@@ -10,7 +10,7 @@ import {
 } from "@/components/shadcnui/select";
 import { SearchIcon } from "lucide-react";
 import { useQueryState } from "nuqs";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { browseParsers } from "./browse-search-params";
 import type { BrowseCategoryOption } from "./browse-types";
 
@@ -54,6 +54,22 @@ const BrowseFilters = ({ categories, total }: BrowseFiltersProps) => {
     return () => clearTimeout(timer);
   }, [input, query, page, setQuery, setPage]);
 
+  const categoryItems = useMemo(
+    () => [
+      { value: "all", label: "All categories" },
+      ...categories.map((item) => ({
+        value: item.slug,
+        label: `${item.name} (${item.count})`,
+      })),
+    ],
+    [categories],
+  );
+
+  const sortItems = useMemo(
+    () => sortOptions.map((item) => ({ value: item.value, label: item.label })),
+    [],
+  );
+
   return (
     <div className="grid gap-3">
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -70,6 +86,7 @@ const BrowseFilters = ({ categories, total }: BrowseFiltersProps) => {
         </div>
         <Select
           value={category}
+          items={categoryItems}
           onValueChange={(value) => {
             void setCategory(value);
             if (page !== 1) {
@@ -94,6 +111,7 @@ const BrowseFilters = ({ categories, total }: BrowseFiltersProps) => {
         </Select>
         <Select
           value={sort}
+          items={sortItems}
           onValueChange={(value) => {
             void setSort(value as (typeof sortOptions)[number]["value"]);
             if (page !== 1) {

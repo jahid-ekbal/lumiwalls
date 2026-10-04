@@ -1,4 +1,4 @@
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 
 import { serverEnv } from "./env/serverEnv";
 import { s3Client } from "./storage/b2Client";
@@ -66,4 +66,27 @@ export const uploadWebpToS3 = async (
   body: Buffer,
 ): Promise<void> => {
   await uploadToS3(key, body, "image/webp");
+};
+
+/**
+ * Delete a single object from S3. Never throws, missing keys are ignored.
+ */
+export const deleteFromS3 = async (key: string): Promise<void> => {
+  try {
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: serverEnv.S3_BUCKET_NAME,
+        Key: key,
+      }),
+    );
+  } catch {
+    return;
+  }
+};
+
+/**
+ * Delete many objects from S3 in parallel. Never throws.
+ */
+export const deleteManyFromS3 = async (keys: string[]): Promise<void> => {
+  await Promise.all(keys.map((key) => deleteFromS3(key)));
 };

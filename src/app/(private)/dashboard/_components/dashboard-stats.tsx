@@ -30,9 +30,12 @@ const DashboardStats = async () => {
 
   const userId = session.user.id;
 
-  const [totalWallpapers, viewAggregate, downloadAggregate] = await Promise.all(
-    [
+  const [totalWallpapers, pendingWallpapers, viewAggregate, downloadAggregate] =
+    await Promise.all([
       prisma.wallpaper.count({ where: { uploaderId: userId } }),
+      prisma.wallpaper.count({
+        where: { uploaderId: userId, isApproved: false },
+      }),
       prisma.wallpaper.aggregate({
         where: { uploaderId: userId },
         _sum: { viewCount: true },
@@ -41,8 +44,7 @@ const DashboardStats = async () => {
         where: { uploaderId: userId },
         _sum: { downloadCount: true },
       }),
-    ],
-  );
+    ]);
 
   const stats = [
     {
@@ -51,6 +53,14 @@ const DashboardStats = async () => {
       description: "Wallpapers you uploaded",
       icon: ImagesIcon,
       href: "/browse" as Route,
+      comingSoon: false,
+    },
+    {
+      title: "Pending Approval",
+      value: pendingWallpapers.toLocaleString(),
+      description: "Awaiting moderation before Browse",
+      icon: ImagesIcon,
+      href: null,
       comingSoon: false,
     },
     {

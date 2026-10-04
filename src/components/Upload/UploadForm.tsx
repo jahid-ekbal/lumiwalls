@@ -24,6 +24,10 @@ import {
   SelectValue,
 } from "@/components/shadcnui/select";
 import { Textarea } from "@/components/shadcnui/textarea";
+import {
+  getPresignedExpiryDate,
+  getRemainingSeconds,
+} from "@/lib/uploadExpiry";
 import { ALLOWED_MIME_TYPES, MAX_UPLOAD_SIZE } from "@/lib/zodSchema";
 import { finalizeUpload, initiateUpload } from "@/server/actions/upload";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -101,6 +105,10 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
   const [stage, setStage] = useState<UploadStage>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [presignedExpiresAt, setPresignedExpiresAt] = useState<Date | null>(
+    null,
+  );
+  const [expiresRemaining, setExpiresRemaining] = useState<number | null>(null);
   const [dimensions, setDimensions] = useState<{
     width: number;
     height: number;
@@ -156,6 +164,19 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     }
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (presignedExpiresAt === null) {
+      return;
+    }
+    if (stage !== "uploading" && stage !== "processing") {
+      return;
+    }
+    const timer = setInterval(() => {
+      setExpiresRemaining(getRemainingSeconds(presignedExpiresAt));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [presignedExpiresAt, stage]);
+
   const validateAndSetFile = useCallback(
     (file: File): boolean => {
       const isAllowedType = (ALLOWED_MIME_TYPES as readonly string[]).includes(
@@ -206,6 +227,13 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
   }, [clearPreviewUrl, previewUrl, stage]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (
+      stage === "initiating" ||
+      stage === "uploading" ||
+      stage === "processing"
+    ) {
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     validateAndSetFile(file);
@@ -227,6 +255,13 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    if (
+      stage === "initiating" ||
+      stage === "uploading" ||
+      stage === "processing"
+    ) {
+      return;
+    }
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     validateAndSetFile(file);
@@ -261,6 +296,17 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     [availableTags, selectedTagIds],
   );
 
+  const categoryItems = useMemo(
+    () =>
+      categories.map((category) => ({
+        value: category.id,
+        label: category.name,
+      })),
+    [categories],
+  );
+
+  const hasCategories = categories.length > 0;
+
   const uploadHandler = async (data: UploadFormClientType) => {
     if (!selectedFile) {
       const msg = "Please select an image to upload";
@@ -278,7 +324,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     setUploadProgress(10);
 
     try {
-      const initiateResult = await initiateUpload({
+      const initiatePayload = {
         title: trimmedTitle,
         description: trimmedDescription,
         categoryId: data.categoryId,
@@ -286,20 +332,23 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
         fileName: selectedFile.name,
         mimeType: selectedFile.type,
         fileSize: selectedFile.size,
-      });
+      };
+      const initiateResult = await initiateUpload(initiatePayload);
 
       if (!initiateResult.success) {
         const msg =
           initiateResult.error === "VALIDATION_ERROR" ?
             "Validation failed, please check your inputs"
           : initiateResult.error === "RATE_LIMITED" ?
-            "Rate limited: maximum 5 uploads per hour"
+            "Rate limited: maximum 5 finalized uploads per hour"
           : initiateResult.error === "INVALID_CATEGORY" ?
             "Selected category is invalid"
           : initiateResult.error === "INVALID_TAG" ?
             "One or more selected tags are invalid"
           : initiateResult.error === "UNAUTHORIZED" ?
             "You must be signed in to upload"
+          : initiateResult.error === "STORAGE_ERROR" ?
+            "Storage unavailable, please try again"
           : initiateResult.error || "Failed to initiate upload";
         setErrorMsg(msg);
         toast.error(msg);
@@ -308,43 +357,114 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
         return;
       }
 
-      const { url, key, wallpaperId } = initiateResult.data;
+      let { url, key, wallpaperId } = initiateResult.data;
+      const expiresAt = getPresignedExpiryDate(initiateResult.data.expiresIn);
+      setPresignedExpiresAt(expiresAt);
+      setExpiresRemaining(initiateResult.data.expiresIn);
 
       setStage("uploading");
       setUploadProgress(30);
 
-      let uploadResponse: Response;
+      let uploadResponse: Response | null = null;
+      let proxyOk = false;
       try {
-        uploadResponse = await fetch(url, {
-          method: "PUT",
-          body: selectedFile,
-          headers: {
-            "Content-Type": selectedFile.type,
-          },
+        const proxyForm = new FormData();
+        proxyForm.set("wallpaperId", wallpaperId);
+        proxyForm.set("key", key);
+        proxyForm.set("file", selectedFile);
+        const proxyResponse = await fetch("/api/upload/proxy", {
+          method: "POST",
+          body: proxyForm,
         });
-      } catch (err) {
-        const rawMsg =
-          err instanceof Error ? err.message : "Failed to upload file";
-        const isConnectionFailure =
-          err instanceof TypeError || rawMsg.includes("Failed to fetch");
-        const msg =
-          isConnectionFailure ?
-            "Could not reach object storage. The storage bucket may be blocking browser uploads, please try again or contact an admin."
-          : rawMsg;
-        setErrorMsg(msg);
-        toast.error(msg);
-        setStage("error");
-        setUploadProgress(0);
-        return;
+        proxyOk = proxyResponse.ok;
+        if (!proxyOk) {
+          const msg =
+            "Server upload failed, trying direct browser upload as fallback.";
+          toast.info(msg);
+        }
+      } catch {
+        proxyOk = false;
       }
 
-      if (!uploadResponse.ok) {
-        const msg = `Upload failed with status ${uploadResponse.status}`;
-        setErrorMsg(msg);
-        toast.error(msg);
-        setStage("error");
-        setUploadProgress(0);
-        return;
+      if (!proxyOk) {
+        try {
+          uploadResponse = await fetch(url, {
+            method: "PUT",
+            body: selectedFile,
+            headers: {
+              "Content-Type": selectedFile.type,
+            },
+          });
+        } catch {
+          const msg =
+            "Could not reach object storage and server fallback failed. Please try again or contact an admin.";
+          setErrorMsg(msg);
+          toast.error(msg);
+          setStage("error");
+          setUploadProgress(0);
+          setPresignedExpiresAt(null);
+          setExpiresRemaining(null);
+          return;
+        }
+      }
+
+      if (uploadResponse && !uploadResponse.ok) {
+        if (uploadResponse.status === 403) {
+          const retryResult = await initiateUpload(initiatePayload);
+          if (retryResult.success) {
+            url = retryResult.data.url;
+            key = retryResult.data.key;
+            wallpaperId = retryResult.data.wallpaperId;
+            const retryExpiresAt = getPresignedExpiryDate(
+              retryResult.data.expiresIn,
+            );
+            setPresignedExpiresAt(retryExpiresAt);
+            setExpiresRemaining(retryResult.data.expiresIn);
+            try {
+              uploadResponse = await fetch(url, {
+                method: "PUT",
+                body: selectedFile,
+                headers: {
+                  "Content-Type": selectedFile.type,
+                },
+              });
+            } catch {
+              const msg =
+                "Upload URL expired, retried once but upload still failed. Please submit again.";
+              setErrorMsg(msg);
+              toast.error(msg);
+              setStage("error");
+              setUploadProgress(0);
+              return;
+            }
+            if (!uploadResponse.ok) {
+              const msg = `Upload failed with status ${uploadResponse.status} after retry. The presigned URL may have expired, please submit again.`;
+              setErrorMsg(msg);
+              toast.error(msg);
+              setStage("error");
+              setUploadProgress(0);
+              return;
+            }
+          } else {
+            const msg =
+              "Upload URL expired (403). Please submit again to get a fresh URL.";
+            setErrorMsg(msg);
+            toast.error(msg);
+            setStage("error");
+            setUploadProgress(0);
+            return;
+          }
+        } else {
+          const msg =
+            uploadResponse.status === 403 ?
+              "Upload blocked (403). Check B2 CORS for http://localhost:3000 allows PUT plus Content-Type and checksum headers, then submit again."
+            : `Upload failed with status ${uploadResponse.status}`;
+          setErrorMsg(msg);
+          toast.error(msg);
+          setStage("error");
+          setUploadProgress(0);
+          return;
+        }
       }
 
       setUploadProgress(60);
@@ -360,20 +480,27 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
           finalizeResult.error === "OBJECT_NOT_FOUND" ?
             "Uploaded file not found, please try again"
           : finalizeResult.error === "PROCESSING_FAILED" ?
-            "Image processing failed"
+            "Image processing failed, orphan files were cleaned up. Please try again."
           : finalizeResult.error === "NOT_FOUND" ? "Wallpaper record not found"
           : finalizeResult.error === "FORBIDDEN" ?
             "You do not have permission to finalize this upload"
           : finalizeResult.error === "KEY_MISMATCH" ? "Upload key mismatch"
+          : finalizeResult.error === "FILE_TOO_LARGE" ?
+            "File too large after upload verification, maximum 50MB"
+          : finalizeResult.error === "STORAGE_ERROR" ?
+            "Storage unavailable during finalize, please try again"
           : finalizeResult.error || "Failed to finalize upload";
         setErrorMsg(msg);
         toast.error(msg);
         setStage("error");
         setUploadProgress(0);
+        setPresignedExpiresAt(null);
         return;
       }
 
-      toast.success("Wallpaper uploaded successfully!");
+      toast.success(
+        "Wallpaper uploaded successfully! It is pending approval before appearing in Browse.",
+      );
 
       reset({
         title: "",
@@ -384,6 +511,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       setTagSearch("");
       handleClearFile();
       setUploadProgress(0);
+      setPresignedExpiresAt(null);
       setStage("idle");
     } catch (err) {
       const msg =
@@ -392,6 +520,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       toast.error(msg);
       setStage("error");
       setUploadProgress(0);
+      setPresignedExpiresAt(null);
     }
   };
 
@@ -421,10 +550,15 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (isBusy) return;
+                fileInputRef.current?.click();
+              }}
               role="button"
-              tabIndex={0}
+              tabIndex={isBusy ? -1 : 0}
+              aria-disabled={isBusy}
               onKeyDown={(e) => {
+                if (isBusy) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   fileInputRef.current?.click();
@@ -473,7 +607,9 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
               <button
                 ref={replaceButtonRef}
                 type="button"
+                disabled={isBusy}
                 onClick={() => {
+                  if (isBusy) return;
                   if (fileInputRef.current) fileInputRef.current.value = "";
                   fileInputRef.current?.click();
                 }}
@@ -514,7 +650,9 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                     type="button"
                     variant="secondary"
                     size="sm"
+                    disabled={isBusy}
                     onClick={() => {
+                      if (isBusy) return;
                       if (fileInputRef.current) fileInputRef.current.value = "";
                       fileInputRef.current?.click();
                     }}>
@@ -525,6 +663,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={isBusy}
                     onClick={handleClearFile}>
                     <XIcon />
                     Clear
@@ -589,21 +728,36 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                 <FieldLabel htmlFor={field.name}>Category</FieldLabel>
                 <Select
                   value={field.value}
+                  items={categoryItems}
                   onValueChange={field.onChange}>
                   <SelectTrigger
                     id={field.name}
                     aria-invalid={fieldState.invalid}
+                    disabled={!hasCategories}
                     className="w-full">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue
+                      placeholder={
+                        hasCategories ? "Select a category" : (
+                          "No categories available"
+                        )
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem
-                        key={category.id}
-                        value={category.id}>
-                        {category.name}
+                    {hasCategories ?
+                      categories.map((category) => (
+                        <SelectItem
+                          key={category.id}
+                          value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    : <SelectItem
+                        value="__empty"
+                        disabled>
+                        No categories available
                       </SelectItem>
-                    ))}
+                    }
                   </SelectContent>
                 </Select>
                 {fieldState.invalid && (
@@ -697,6 +851,9 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
           <p className="text-muted-foreground text-xs">
             {stage === "uploading" ? "Uploading..." : "Processing..."}{" "}
             {uploadProgress}%
+            {expiresRemaining !== null && stage === "uploading" ?
+              ` • URL expires in ${expiresRemaining}s, retry if expired`
+            : ""}
           </p>
         </div>
       )}

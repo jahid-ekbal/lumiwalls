@@ -1,7 +1,7 @@
 import pLimit from "p-limit";
 import sharp from "sharp";
 
-import { uploadWebpToS3 } from "../fileStorage";
+import { deleteManyFromS3, uploadWebpToS3 } from "../fileStorage";
 
 export type ProcessedImage = {
   metadata: {
@@ -141,11 +141,16 @@ export const generateThumbsAndUpload = async (
   const { blurDataUrl, thumb400, thumb800, thumb1920, metadata, aspectRatio } =
     await generateThumbnails(buffer);
 
-  await Promise.all([
-    uploadWebpToS3(keys.thumb400, thumb400),
-    uploadWebpToS3(keys.thumb800, thumb800),
-    uploadWebpToS3(keys.thumb1920, thumb1920),
-  ]);
+  try {
+    await Promise.all([
+      uploadWebpToS3(keys.thumb400, thumb400),
+      uploadWebpToS3(keys.thumb800, thumb800),
+      uploadWebpToS3(keys.thumb1920, thumb1920),
+    ]);
+  } catch (error) {
+    await deleteManyFromS3([keys.thumb400, keys.thumb800, keys.thumb1920]);
+    throw error;
+  }
 
   return { blurDataUrl, metadata, aspectRatio };
 };
