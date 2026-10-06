@@ -1,0 +1,59 @@
+# Render Blueprint for lumiwalls.
+# Auto deploys latest build on every push to main.
+# Connect once via Dashboard: New > Blueprint > select repo > Apply.
+# Then every push to main triggers: install, generate, migrate, build, start.
+
+services:
+  - type: web
+    name: lumiwalls
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    repo: https://github.com/jahid-ekbal/lumiwalls
+    buildCommand: bun install --frozen-lockfile && bunx prisma generate && bunx prisma migrate deploy && bun run build
+    # Free tier has no preDeployCommand support, so migrate deploy runs in buildCommand above.
+    # PORT is provided by Render. Next respects --port $PORT.
+    startCommand: bun run start -- --port $PORT
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 24.21.0
+      - key: BUN_VERSION
+        value: 1.4.2
+      - key: CHECKPOINT_DISABLE
+        value: 1
+      - key: BETTER_AUTH_TELEMETRY
+        value: 0
+      # Secrets below are sync false. Fill once in Render Dashboard.
+      # DATABASE_URL must be Neon pooled connection (hostname contains -pooler).
+      - key: DATABASE_URL
+        sync: false
+      # DIRECT_URL must be Neon direct connection for Prisma CLI.
+      - key: DIRECT_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      # Set to https://lumiwalls.onrender.com after first deploy, then redeploy once.
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: BETTER_AUTH_ALLOWED_ORIGINS
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false
+      - key: NEXT_PUBLIC_S3_PUBLIC_URL
+        sync: false
+
+previews:
+  generation: off
