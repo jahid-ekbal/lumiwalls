@@ -21,7 +21,7 @@ export const metadata = createMetadata({
 
 const DashboardPage = () => {
   return (
-    <div className="grid gap-6 p-6">
+    <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">

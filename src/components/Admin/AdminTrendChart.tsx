@@ -33,12 +33,18 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const AdminTrendChart = ({ data }: { data: TrendPoint[] }) => {
+const AdminTrendChart = ({
+  data,
+  description = "Daily totals for the last 30 days",
+}: {
+  data: TrendPoint[];
+  description?: string;
+}) => {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Uploads and users</CardTitle>
-        <CardDescription>Daily totals for the last 30 days</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer

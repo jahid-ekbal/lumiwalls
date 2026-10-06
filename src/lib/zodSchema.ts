@@ -165,3 +165,242 @@ export const browseDownloadSchema = z.object({
 });
 
 export type BrowseDownloadType = z.infer<typeof browseDownloadSchema>;
+
+// ── Moderation (admin) ─────────────────────────────────
+export const moderationDecisionSchema = z.enum(["APPROVED", "REJECTED"]);
+
+export type ModerationDecisionType = z.infer<typeof moderationDecisionSchema>;
+
+export const moderationReviewSchema = z.object({
+  wallpaperId: z.string().min(1),
+  decision: moderationDecisionSchema,
+  reviewNotes: z.string().trim().max(2000).optional().default(""),
+});
+
+export type ModerationReviewType = z.infer<typeof moderationReviewSchema>;
+
+export const bulkReviewSchema = z.object({
+  wallpaperIds: z.array(z.string().min(1)).min(1).max(50),
+  decision: moderationDecisionSchema,
+  reviewNotes: z.string().trim().max(2000).optional().default(""),
+});
+
+export type BulkReviewType = z.infer<typeof bulkReviewSchema>;
+
+export const banUserSchema = z.object({
+  userId: z.string().min(1),
+  banned: z.boolean(),
+  banReason: z.string().trim().max(500).optional().default(""),
+  banExpires: z.coerce.date().optional(),
+});
+
+export type BanUserType = z.infer<typeof banUserSchema>;
+
+export const reportReasonSchema = z.enum([
+  "SPAM",
+  "NUDITY",
+  "COPYRIGHT",
+  "VIOLENCE",
+  "OTHER",
+]);
+
+export type ReportReasonType = z.infer<typeof reportReasonSchema>;
+
+export const reportResolveSchema = z.object({
+  reportId: z.string().min(1),
+  decision: z.enum(["RESOLVED", "DISMISSED"]),
+  hideWallpaper: z.boolean().optional().default(false),
+});
+
+export type ReportResolveType = z.infer<typeof reportResolveSchema>;
+
+export const hardDeleteWallpaperSchema = z.object({
+  wallpaperId: z.string().min(1),
+});
+
+export type HardDeleteWallpaperType = z.infer<typeof hardDeleteWallpaperSchema>;
+
+export const moderationSearchParamsSchema = z.object({
+  tab: z.enum(["queue", "reports"]).optional().default("queue"),
+  status: z
+    .enum(["PENDING", "APPROVED", "REJECTED"])
+    .optional()
+    .default("PENDING"),
+  reportStatus: z
+    .enum(["PENDING", "RESOLVED", "DISMISSED", "ALL"])
+    .optional()
+    .default("PENDING"),
+  q: z.string().trim().max(100).optional().default(""),
+  category: z.string().trim().max(40).optional().default("all"),
+  sort: z.enum(["newest", "oldest"]).optional().default("newest"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type ModerationSearchParamsType = z.infer<
+  typeof moderationSearchParamsSchema
+>;
+
+// ── Users (admin) ────────────────────────────────────
+export const usersSearchParamsSchema = z.object({
+  q: z.string().trim().max(100).optional().default(""),
+  role: z.enum(["all", "admin", "user"]).optional().default("all"),
+  status: z.enum(["all", "active", "banned"]).optional().default("all"),
+  sort: z.enum(["newest", "oldest"]).optional().default("newest"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type UsersSearchParamsType = z.infer<typeof usersSearchParamsSchema>;
+
+export const setRoleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["admin", "user"]),
+});
+
+export type SetRoleType = z.infer<typeof setRoleSchema>;
+
+export const deleteUserSchema = z.object({
+  userId: z.string().min(1),
+});
+
+export type DeleteUserType = z.infer<typeof deleteUserSchema>;
+
+export const wallpaperVisibilitySchema = z.object({
+  wallpaperId: z.string().min(1),
+  isPublic: z.boolean(),
+});
+
+export type WallpaperVisibilityType = z.infer<typeof wallpaperVisibilitySchema>;
+
+// ── Reports (admin + flag flow) ──────────────────────
+export const reportsSearchParamsSchema = z.object({
+  q: z.string().trim().max(100).optional().default(""),
+  reason: z
+    .enum(["ALL", "SPAM", "NUDITY", "COPYRIGHT", "VIOLENCE", "OTHER"])
+    .optional()
+    .default("ALL"),
+  reportStatus: z
+    .enum(["PENDING", "RESOLVED", "DISMISSED", "ALL"])
+    .optional()
+    .default("PENDING"),
+  sort: z.enum(["newest", "oldest"]).optional().default("newest"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type ReportsSearchParamsType = z.infer<typeof reportsSearchParamsSchema>;
+
+export const createReportSchema = z.object({
+  wallpaperId: z.string().min(1),
+  reason: reportReasonSchema,
+  details: z.string().trim().max(2000).optional().default(""),
+});
+
+export type CreateReportType = z.infer<typeof createReportSchema>;
+
+// ── Collections (admin, editorial) ───────────────────
+const collectionSlugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const collectionsSearchParamsSchema = z.object({
+  q: z.string().trim().max(100).optional().default(""),
+  status: z.enum(["all", "active", "hidden"]).optional().default("all"),
+  sort: z.enum(["newest", "manual"]).optional().default("manual"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type CollectionsSearchParamsType = z.infer<
+  typeof collectionsSearchParamsSchema
+>;
+
+export const collectionCreateSchema = z.object({
+  title: z.string().trim().min(2).max(120),
+  slug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(120)
+    .regex(collectionSlugRegex, {
+      error: "Slug must be lowercase letters, numbers, hyphens",
+    })
+    .optional()
+    .or(z.literal("")),
+  description: z.string().trim().max(2000).optional().or(z.literal("")),
+  active: z.boolean().optional().default(true),
+  sortOrder: z.coerce.number().int().min(0).max(100000).optional().default(0),
+});
+
+export type CollectionCreateType = z.infer<typeof collectionCreateSchema>;
+
+export const collectionUpdateSchema = collectionCreateSchema.extend({
+  id: z.cuid(),
+});
+
+export type CollectionUpdateType = z.infer<typeof collectionUpdateSchema>;
+
+export const collectionItemSchema = z.object({
+  collectionId: z.string().min(1),
+  wallpaperId: z.string().min(1),
+  note: z.string().trim().max(1000).optional().default(""),
+});
+
+export type CollectionItemType = z.infer<typeof collectionItemSchema>;
+
+export const collectionReorderSchema = z.object({
+  collectionId: z.string().min(1),
+  wallpaperIds: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export type CollectionReorderType = z.infer<typeof collectionReorderSchema>;
+
+export const wallpaperFlagsSchema = z.object({
+  wallpaperId: z.string().min(1),
+  featured: z.boolean(),
+  editorsPick: z.boolean(),
+});
+
+export type WallpaperFlagsType = z.infer<typeof wallpaperFlagsSchema>;
+
+// ── Featured (admin) ─────────────────────────────────
+export const featuredSearchParamsSchema = z.object({
+  tab: z.enum(["flags", "placements"]).optional().default("flags"),
+  q: z.string().trim().max(100).optional().default(""),
+  flag: z.enum(["all", "featured", "pick", "both"]).optional().default("all"),
+  placement: z
+    .enum(["ALL", "HERO", "TRENDING", "SEASONAL"])
+    .optional()
+    .default("ALL"),
+  window: z
+    .enum(["active", "upcoming", "expired", "all"])
+    .optional()
+    .default("active"),
+  sort: z.enum(["newest", "priority"]).optional().default("priority"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type FeaturedSearchParamsType = z.infer<
+  typeof featuredSearchParamsSchema
+>;
+
+export const placementSchema = z.object({
+  wallpaperId: z.string().min(1),
+  placement: z.enum(["HERO", "TRENDING", "SEASONAL"]),
+  startAt: z.coerce.date(),
+  endAt: z.coerce.date().optional(),
+  priority: z.coerce.number().int().min(0).max(100000).optional().default(0),
+  active: z.boolean().optional().default(true),
+});
+
+export type PlacementType = z.infer<typeof placementSchema>;
+
+export const placementUpdateSchema = placementSchema.extend({
+  id: z.cuid(),
+});
+
+export type PlacementUpdateType = z.infer<typeof placementUpdateSchema>;
+
+// ── Analytics (admin, read-only) ─────────────────────
+export const analyticsSearchParamsSchema = z.object({
+  range: z.enum(["7", "30", "90"]).optional().default("30"),
+});
+
+export type AnalyticsSearchParamsType = z.infer<
+  typeof analyticsSearchParamsSchema
+>;

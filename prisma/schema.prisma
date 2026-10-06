@@ -17,6 +17,26 @@ enum ModerationStatus {
   REJECTED
 }
 
+enum ReportReason {
+  SPAM
+  NUDITY
+  COPYRIGHT
+  VIOLENCE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum Placement {
+  HERO
+  TRENDING
+  SEASONAL
+}
+
 model User {
   id            String    @id
   name          String
@@ -35,6 +55,10 @@ model User {
 
   wallpapers        Wallpaper[]       @relation("UploaderWallpapers")
   moderationReviews ModerationQueue[] @relation("ModerationReviewer")
+  reportsMade       Report[]          @relation("ReportReporter")
+  reportsReviewed   Report[]          @relation("ReportReviewer")
+  collectionsCurated Collection[]     @relation("CollectionCurator")
+  placementsCurated  FeaturedPlacement[] @relation("PlacementCurator")
 
   @@unique([email])
   @@map("user")
@@ -167,6 +191,9 @@ model Wallpaper {
 
   tags            WallpaperTag[]
   moderationQueue ModerationQueue?
+  reports         Report[]
+  collectionItems CollectionItem[]
+  placements      FeaturedPlacement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -202,4 +229,79 @@ model ModerationQueue {
   @@index([reviewerId])
   @@index([createdAt(sort: Desc)])
   @@map("moderation_queue")
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  wallpaperId String
+  wallpaper   Wallpaper    @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  reporterId  String?
+  reporter    User?        @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reason      ReportReason
+  details     String?      @db.Text
+  status      ReportStatus @default(PENDING)
+  reviewerId  String?
+  reviewer    User?        @relation("ReportReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  reviewedAt  DateTime?
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status])
+  @@index([wallpaperId])
+  @@index([createdAt(sort: Desc)])
+  @@map("report")
+}
+
+model Collection {
+  id          String           @id @default(cuid())
+  title       String           @db.VarChar(120)
+  slug        String           @unique
+  description String?          @db.Text
+  coverUrl    String?
+  active      Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  curatorId   String?
+  curator     User?            @relation("CollectionCurator", fields: [curatorId], references: [id], onDelete: SetNull)
+  items       CollectionItem[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([slug])
+  @@index([active, sortOrder])
+  @@map("collection")
+}
+
+model CollectionItem {
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  wallpaperId  String
+  wallpaper    Wallpaper  @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  position     Int        @default(0)
+  note         String?    @db.Text
+  createdAt    DateTime   @default(now())
+
+  @@unique([collectionId, wallpaperId])
+  @@index([collectionId, position])
+  @@map("collection_item")
+}
+
+model FeaturedPlacement {
+  id          String            @id @default(cuid())
+  wallpaperId String
+  wallpaper   Wallpaper         @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  placement   Placement
+  startAt     DateTime
+  endAt       DateTime?
+  priority    Int               @default(0)
+  active      Boolean           @default(true)
+  curatorId   String?
+  curator     User?             @relation("PlacementCurator", fields: [curatorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([placement, active, startAt, endAt])
+  @@index([wallpaperId])
+  @@index([active, priority])
+  @@map("featured_placement")
 }

@@ -14,18 +14,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shadcnui/dialog";
+import { Field, FieldLabel } from "@/components/shadcnui/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcnui/select";
+import { Textarea } from "@/components/shadcnui/textarea";
 import { incrementDownloadCount } from "@/server/actions/browse";
-import { DownloadIcon, EyeIcon, ImagesIcon, Loader2Icon } from "lucide-react";
+import { createReport } from "@/server/actions/moderation";
+import {
+  DownloadIcon,
+  EyeIcon,
+  FlagIcon,
+  ImagesIcon,
+  Loader2Icon,
+} from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { toImagePath } from "@/lib/imageUrl";
 import { browseParsers } from "./browse-search-params";
 import type { BrowseWallpaper } from "./browse-types";
 
 type WallpaperPreviewProps = {
   wallpapers: BrowseWallpaper[];
   previewWallpaper: BrowseWallpaper | null;
+  reportedIds?: string[];
 };
 
 const initials = (name: string) => {
@@ -50,16 +69,28 @@ const formatBytes = (bytes: number | null) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const PreviewDetails = ({ item }: { item: BrowseWallpaper }) => {
+const PreviewDetails = ({
+  item,
+  reported,
+}: {
+  item: BrowseWallpaper;
+  reported: boolean;
+}) => {
+  const router = useRouter();
   const [downloadCount, setDownloadCount] = useState(item.downloadCount);
   const [downloading, setDownloading] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reason, setReason] = useState("SPAM");
+  const [details, setDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
 
-  const largeImage =
+  const largeImage = toImagePath(
     item.thumb1920Url ??
-    item.thumb800Url ??
-    item.originalUrl ??
-    item.thumb400Url;
-  const downloadUrl = item.originalUrl ?? largeImage;
+      item.thumb800Url ??
+      item.originalUrl ??
+      item.thumb400Url,
+  );
+  const downloadUrl = toImagePath(item.originalUrl ?? largeImage);
 
   const handleDownload = async () => {
     if (downloading) {
@@ -81,6 +112,44 @@ const PreviewDetails = ({ item }: { item: BrowseWallpaper }) => {
       toast.error("Download failed, please try again");
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleReport = async () => {
+    if (reporting) {
+      return;
+    }
+    if (reason === "OTHER" && !details.trim()) {
+      toast.error("Details are required for Other");
+      return;
+    }
+    setReporting(true);
+    try {
+      const result = await createReport({
+        wallpaperId: item.id,
+        reason,
+        details,
+      });
+      if (!result.success) {
+        toast.error(
+          result.error === "ALREADY_REPORTED" ?
+            "Already reported, awaiting review"
+          : result.error === "CANNOT_REPORT_OWN" ?
+            "Cannot flag your own wallpaper"
+          : result.error === "DETAILS_REQUIRED" ?
+            "Details are required for Other"
+          : "Report failed, please try again",
+        );
+        return;
+      }
+      toast.success("Thanks, report submitted");
+      setReportOpen(false);
+      setDetails("");
+      router.refresh();
+    } catch {
+      toast.error("Report failed, please try again");
+    } finally {
+      setReporting(false);
     }
   };
 
@@ -207,7 +276,15 @@ const PreviewDetails = ({ item }: { item: BrowseWallpaper }) => {
           </span>
         </span>
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={reported}
+          onClick={() => setReportOpen(true)}>
+          <FlagIcon className="size-4" />
+          {reported ? "Reported" : "Flag"}
+        </Button>
         {downloadUrl ?
           <a
             href={downloadUrl}
@@ -230,6 +307,66 @@ const PreviewDetails = ({ item }: { item: BrowseWallpaper }) => {
           </Button>
         }
       </div>
+      <Dialog
+        open={reportOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setReportOpen(false);
+          }
+        }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Flag wallpaper</DialogTitle>
+            <DialogDescription>
+              {`Report ${item.title} for review`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="flag-reason">Reason</FieldLabel>
+              <Select
+                value={reason}
+                items={[
+                  { value: "SPAM", label: "Spam" },
+                  { value: "NUDITY", label: "Nudity" },
+                  { value: "COPYRIGHT", label: "Copyright" },
+                  { value: "VIOLENCE", label: "Violence" },
+                  { value: "OTHER", label: "Other" },
+                ]}
+                onValueChange={(value) => setReason(value)}>
+                <SelectTrigger id="flag-reason">
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SPAM">Spam</SelectItem>
+                  <SelectItem value="NUDITY">Nudity</SelectItem>
+                  <SelectItem value="COPYRIGHT">Copyright</SelectItem>
+                  <SelectItem value="VIOLENCE">Violence</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="flag-details">Details</FieldLabel>
+              <Textarea
+                id="flag-details"
+                value={details}
+                onChange={(event) => setDetails(event.target.value)}
+                placeholder={
+                  reason === "OTHER" ? "Required for Other" : "Optional details"
+                }
+              />
+            </Field>
+            <Button
+              onClick={() => void handleReport()}
+              disabled={reporting}>
+              {reporting ?
+                <Loader2Icon className="size-4 animate-spin" />
+              : "Submit report"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -237,6 +374,7 @@ const PreviewDetails = ({ item }: { item: BrowseWallpaper }) => {
 const WallpaperPreview = ({
   wallpapers,
   previewWallpaper,
+  reportedIds = [],
 }: WallpaperPreviewProps) => {
   const [preview, setPreview] = useQueryState("preview", browseParsers.preview);
   const selected =
@@ -265,6 +403,7 @@ const WallpaperPreview = ({
         : <PreviewDetails
             key={selected.id}
             item={selected}
+            reported={reportedIds.includes(selected.id)}
           />
         }
       </DialogContent>

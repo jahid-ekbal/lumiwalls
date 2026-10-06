@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/shadcnui/card";
 import { DownloadIcon, EyeIcon, ImagesIcon } from "lucide-react";
 import Image from "next/image";
 import { useQueryState } from "nuqs";
+import { toImagePath } from "@/lib/imageUrl";
 import { browseParsers } from "./browse-search-params";
 import type { BrowseWallpaper } from "./browse-types";
 
@@ -30,7 +31,12 @@ const initials = (name: string) => {
 };
 
 const cardImage = (item: BrowseWallpaper) =>
-  item.thumb400Url ?? item.thumb800Url ?? item.thumb1920Url ?? item.originalUrl;
+  toImagePath(
+    item.thumb400Url ??
+      item.thumb800Url ??
+      item.thumb1920Url ??
+      item.originalUrl,
+  );
 
 const BrowseGrid = ({ wallpapers }: BrowseGridProps) => {
   const [, setPreview] = useQueryState("preview", browseParsers.preview);

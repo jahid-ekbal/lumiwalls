@@ -4,10 +4,12 @@ import BrowsePagination from "@/components/Browse/BrowsePagination";
 import WallpaperPreview from "@/components/Browse/WallpaperPreview";
 import type { BrowseCategoryOption } from "@/components/Browse/browse-types";
 import { Skeleton } from "@/components/shadcnui/skeleton";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import { createMetadata } from "@/lib/metadata";
 import { browseSearchParamsSchema } from "@/lib/zodSchema";
 import type { Prisma } from "@generated/prisma/client";
+import { headers } from "next/headers";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
@@ -172,6 +174,30 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
       }),
   ]);
 
+  const session = await auth.api.getSession({ headers: await headers() });
+  const pageIds = [
+    ...wallpapers.map((item) => item.id),
+    ...((
+      previewWallpaper &&
+      !wallpapers.some((item) => item.id === previewWallpaper.id)
+    ) ?
+      [previewWallpaper.id]
+    : []),
+  ];
+  const reportedIds =
+    session?.user && pageIds.length > 0 ?
+      (
+        await prisma.report.findMany({
+          where: {
+            reporterId: session.user.id,
+            wallpaperId: { in: pageIds },
+            status: "PENDING",
+          },
+          select: { wallpaperId: true },
+        })
+      ).map((item) => item.wallpaperId)
+    : [];
+
   return (
     <div className="w-full p-6">
       <div className="grid gap-6">
@@ -237,6 +263,7 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
           <WallpaperPreview
             wallpapers={wallpapers}
             previewWallpaper={previewWallpaper}
+            reportedIds={reportedIds}
           />
         </Suspense>
       </div>

@@ -118,6 +118,8 @@ See existing examples under `src/components/Auth/`.
 ## Package manager
 
 - `bun.lock` is committed; Bun is the primary workflow (`bun install`, `bun <script>`). npm works (engines pin `node >=24`, `npm >=11`) but the scripts and README are written around `bun`.
+- Run this application with `bun dev` only.
+- Always use scripts from `package.json` (`bun dev`, `bun run build`, `bun lint`, `bun lint:check`, etc.). Do not modify the `package.json` scripts.
 
 ## Zod v4 quirks
 
@@ -151,6 +153,7 @@ See existing examples under `src/components/Auth/`.
 - Next 16.2 error boundaries receive `unstable_retry` (re-fetches and re-renders) instead of only legacy `reset` (re-renders without refetch). Accept both props as optional in `error.tsx` so recovery works across versions.
 - Nested `not-found.tsx` files only handle `notFound()` calls inside their own segment. Unmatched URLs need a root `src/app/not-found.tsx`.
 - Colocated `_components` folders under a route segment are route-private and never become URLs. Use them for streamed async section components.
+- Stored image URLs are absolute (`BETTER_AUTH_URL/api/images/...`). `next/image` rejects absolute same-origin URLs unless the host is in `images.remotePatterns`, so render via `toImagePath()` in `src/lib/imageUrl.ts` which strips to the relative `/api/images/...` path. Plain `img` tags do not need this.
 
 - ESLint ignores: `.next/**`, `out/**`, `build/**`, `next-env.d.ts`, `generated/**`.
 - `.env` is gitignored; `.env.example` is the committed template. Do not commit secrets.
