@@ -727,7 +727,7 @@ const FeaturedClient = ({
                     { value: "TRENDING", label: "Trending" },
                     { value: "SEASONAL", label: "Seasonal" },
                   ]}
-                  onValueChange={(value) => setPlacementValue(value)}>
+                  onValueChange={(value) => setPlacementValue(value ?? "HERO")}>
                   <SelectTrigger id="placement-kind">
                     <SelectValue placeholder="Placement" />
                   </SelectTrigger>

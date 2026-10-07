@@ -68,7 +68,7 @@ export async function GET(
         response.ContentType
       : key.endsWith(".webp") ? "image/webp"
       : "application/octet-stream";
-    return new Response(bytes, {
+    return new Response(Buffer.from(bytes), {
       status: 200,
       headers: {
         "Content-Type": contentType,

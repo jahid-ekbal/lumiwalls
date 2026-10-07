@@ -333,7 +333,7 @@ const PreviewDetails = ({
                   { value: "VIOLENCE", label: "Violence" },
                   { value: "OTHER", label: "Other" },
                 ]}
-                onValueChange={(value) => setReason(value)}>
+                onValueChange={(value) => setReason(value ?? "SPAM")}>
                 <SelectTrigger id="flag-reason">
                   <SelectValue placeholder="Select reason" />
                 </SelectTrigger>

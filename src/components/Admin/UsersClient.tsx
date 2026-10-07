@@ -522,7 +522,7 @@ const UsersClient = ({ params, counts, totalPages, users }: Props) => {
                   { value: "7", label: "7 days" },
                   { value: "30", label: "30 days" },
                 ]}
-                onValueChange={(value) => setBanExpiry(value)}>
+                onValueChange={(value) => setBanExpiry(value ?? "permanent")}>
                 <SelectTrigger id="user-ban-expiry">
                   <SelectValue placeholder="Select expiry" />
                 </SelectTrigger>

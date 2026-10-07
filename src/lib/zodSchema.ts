@@ -323,8 +323,8 @@ export const collectionCreateSchema = z.object({
     .optional()
     .or(z.literal("")),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
-  active: z.boolean().optional().default(true),
-  sortOrder: z.coerce.number().int().min(0).max(100000).optional().default(0),
+  active: z.boolean(),
+  sortOrder: z.number().int().min(0).max(100000),
 });
 
 export type CollectionCreateType = z.infer<typeof collectionCreateSchema>;
