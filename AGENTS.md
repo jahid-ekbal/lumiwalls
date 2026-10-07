@@ -143,6 +143,7 @@ See existing examples under `src/components/Auth/`.
 - For `providerId: "credential"` accounts, Better Auth sets `accountId = userId` (the user's own ID), **not** the email. Verified in `node_modules/better-auth/dist/api/routes/sign-up.mjs` (`accountId: createdUser.id`). Sign-in matches on `providerId === "credential"` only, so an email-based `accountId` still logs in, but it breaks any code expecting `accountId === userId`. Seed scripts must mirror this.
 - Password hashing lives in `src/lib/argon2.ts` (`hashPasswordFunction` / `verifyPasswordFunction`), wired into `auth.ts` via `emailAndPassword.password.{hash,verify}`. Always reuse these; never call `@node-rs/argon2` directly, or the hash may not verify (the secret is encoded with `TextEncoder`, not `Buffer.from`).
 - The `admin()` plugin's default roles are `"admin"` and `"user"` (`adminRoles: ["admin"]`, `defaultRole: "user"`). `role` is a plain nullable `String?` in the schema, not an enum.
+- `trustedOrigins` is built from `BETTER_AUTH_URL` plus comma-separated `BETTER_AUTH_ALLOWED_ORIGINS`. On Render both must be the public URL (e.g. `https://lumiwalls.onrender.com`), otherwise sign-in fails with `Invalid origin`.
 
 ## PrismaNeon adapter
 

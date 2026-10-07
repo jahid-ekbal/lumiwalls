@@ -10,6 +10,16 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   baseURL: serverEnv.BETTER_AUTH_URL,
   secret: serverEnv.BETTER_AUTH_SECRET,
+  trustedOrigins: Array.from(
+    new Set(
+      [
+        serverEnv.BETTER_AUTH_URL,
+        ...(serverEnv.BETTER_AUTH_ALLOWED_ORIGINS?.split(",")
+          .map((origin) => origin.trim())
+          .filter((origin) => origin.length > 0) ?? []),
+      ].map((origin) => origin.replace(/\/$/, "")),
+    ),
+  ),
   advanced: {
     cookiePrefix: "cit",
     defaultCookieAttributes: {
