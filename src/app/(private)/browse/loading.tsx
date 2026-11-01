@@ -13,7 +13,7 @@ const BrowseLoading = () => {
           <Skeleton className="h-9 w-full sm:w-56" />
           <Skeleton className="h-9 w-full sm:w-48" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {Array.from({ length: 8 }, (_, index) => (
             <div
               key={index}
