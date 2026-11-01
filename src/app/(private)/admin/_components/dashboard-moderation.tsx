@@ -1,4 +1,3 @@
-import { Badge } from "@/components/shadcnui/badge";
 import { buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
@@ -7,143 +6,139 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/shadcnui/table";
 import prisma from "@/lib/database/dbClient";
-import { ArrowRightIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { FlagIcon, ShieldIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { formatDate, PREVIEW_TAKE } from "./dashboard-utils";
+
+const openReviewCta = (
+  label: string,
+  href: Route<string>,
+  icon: typeof ShieldIcon,
+) => {
+  const Icon = icon;
+  return (
+    <Link
+      href={href}
+      className={buttonVariants({ variant: "outline", size: "sm" })}>
+      <Icon
+        data-icon="inline-start"
+        className="size-4"
+      />
+      <span>{label}</span>
+    </Link>
+  );
+};
 
 const DashboardModeration = async () => {
-  const pendingQueue = await prisma.moderationQueue.findMany({
-    where: { status: "PENDING" },
-    orderBy: { createdAt: "desc" },
-    take: PREVIEW_TAKE,
-    include: {
-      wallpaper: {
-        include: {
-          uploader: { select: { name: true, email: true } },
-          category: { select: { name: true } },
-          tags: {
-            take: 3,
-            include: { tag: { select: { name: true } } },
-          },
-        },
-      },
-    },
-  });
+  const [pendingCount, oldestPending, pendingReportCount, latestPendingReport] =
+    await Promise.all([
+      prisma.moderationQueue.count({ where: { status: "PENDING" } }),
+      prisma.moderationQueue.findFirst({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true },
+      }),
+      prisma.report.count({ where: { status: "PENDING" } }),
+      prisma.report.findFirst({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        select: { reason: true, createdAt: true },
+      }),
+    ]);
+
+  const hasQueueBacklog = pendingCount > 0;
+  const hasReportBacklog = pendingReportCount > 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <CardTitle>Pending moderation</CardTitle>
-            <CardDescription>
-              Oldest first by queue order, latest {PREVIEW_TAKE} shown
-            </CardDescription>
+    <div className="grid items-start gap-6 xl:grid-cols-2">
+      <Card
+        className={cn(
+          hasQueueBacklog && "ring-destructive/20 dark:ring-destructive/30",
+        )}>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="bg-muted/60 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+              <ShieldIcon className="size-4" />
+            </span>
+            <div className="grid gap-0.5">
+              <CardTitle>Moderation queue</CardTitle>
+              <CardDescription>
+                Uploads waiting for a review decision
+              </CardDescription>
+            </div>
           </div>
-          <Link
-            href={"/admin/moderation" as Route}
-            className={buttonVariants({
-              variant: "outline",
-              size: "sm",
-            })}>
-            <span>Open moderation</span>
-            <ArrowRightIcon />
-          </Link>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {pendingQueue.length === 0 ?
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            No wallpapers awaiting review.
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <p
+              className={cn(
+                "text-3xl font-semibold tracking-tight",
+                hasQueueBacklog && "text-destructive",
+              )}>
+              {pendingCount.toLocaleString()}
+            </p>
+            {openReviewCta(
+              "Open moderation",
+              "/admin/moderation" as Route,
+              ShieldIcon,
+            )}
+          </div>
+          <p className="text-muted-foreground mt-3 text-xs">
+            {hasQueueBacklog && oldestPending ?
+              `Oldest upload has been waiting ${formatDistanceToNow(
+                oldestPending.createdAt,
+              )}`
+            : "The queue is caught up. Nothing is waiting."}
           </p>
-        : <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Wallpaper</TableHead>
-                <TableHead>Uploader</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pendingQueue.map((item) => {
-                const wallpaper = item.wallpaper;
-                const rawThumb =
-                  wallpaper.thumb400Url ??
-                  wallpaper.thumb800Url ??
-                  wallpaper.originalUrl;
-                const thumb = rawThumb?.startsWith("http") ? rawThumb : null;
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {thumb ?
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={thumb}
-                            alt={wallpaper.title}
-                            className="size-10 shrink-0 rounded-xl object-cover"
-                            loading="lazy"
-                          />
-                        : <div className="bg-muted size-10 shrink-0 rounded-xl" />
-                        }
-                        <div>
-                          <p className="font-medium">{wallpaper.title}</p>
-                          <p className="text-muted-foreground text-xs">
-                            {formatDate(item.createdAt)} in queue
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p>{wallpaper.uploader.name}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {wallpaper.uploader.email} on{" "}
-                          {formatDate(wallpaper.createdAt)}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {wallpaper.category ?
-                          <Badge variant="secondary">
-                            {wallpaper.category.name}
-                          </Badge>
-                        : <span className="text-muted-foreground text-xs">
-                            Uncategorized
-                          </span>
-                        }
-                        {wallpaper.tags.map(({ tag }) => (
-                          <Badge
-                            key={tag.name}
-                            variant="outline">
-                            {tag.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{item.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        }
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Card
+        className={cn(
+          hasReportBacklog && "ring-destructive/20 dark:ring-destructive/30",
+        )}>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <span className="bg-muted/60 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+              <FlagIcon className="size-4" />
+            </span>
+            <div className="grid gap-0.5">
+              <CardTitle>User reports</CardTitle>
+              <CardDescription>
+                Flags filed against wallpapers, unresolved
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <p
+              className={cn(
+                "text-3xl font-semibold tracking-tight",
+                hasReportBacklog && "text-destructive",
+              )}>
+              {pendingReportCount.toLocaleString()}
+            </p>
+            {openReviewCta(
+              "Review reports",
+              "/admin/reports" as Route,
+              FlagIcon,
+            )}
+          </div>
+          <p className="text-muted-foreground mt-3 text-xs">
+            {hasReportBacklog && latestPendingReport ?
+              `Most recent: ${latestPendingReport.reason.toLowerCase()}, filed ${formatDistanceToNow(
+                latestPendingReport.createdAt,
+                { addSuffix: true },
+              )}`
+            : "No open reports. All flags are resolved or dismissed."}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

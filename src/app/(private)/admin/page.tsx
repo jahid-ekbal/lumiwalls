@@ -4,15 +4,19 @@ import { ArrowRightIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import DashboardLinks from "./_components/dashboard-links";
 import DashboardModeration from "./_components/dashboard-moderation";
 import DashboardRecent from "./_components/dashboard-recent";
 import {
-  ModerationSkeleton,
-  RecentSkeleton,
+  LinksSkeleton,
+  MonitorsSkeleton,
   StatsSkeleton,
+  StorageSkeleton,
   TrendSkeleton,
+  WatchlistSkeleton,
 } from "./_components/dashboard-skeletons";
 import DashboardStats from "./_components/dashboard-stats";
+import DashboardStorage from "./_components/dashboard-storage";
 import DashboardTrend from "./_components/dashboard-trend";
 import { TREND_DAYS } from "./_components/dashboard-utils";
 
@@ -39,7 +43,7 @@ const AdminDashboardPage = () => {
           href={"/admin/analytics" as Route}
           className={buttonVariants({ variant: "outline" })}>
           <span>View analytics</span>
-          <ArrowRightIcon />
+          <ArrowRightIcon data-icon="inline-end" />
         </Link>
       </div>
 
@@ -51,12 +55,20 @@ const AdminDashboardPage = () => {
         <DashboardTrend />
       </Suspense>
 
-      <Suspense fallback={<ModerationSkeleton />}>
+      <Suspense fallback={<LinksSkeleton />}>
+        <DashboardLinks />
+      </Suspense>
+
+      <Suspense fallback={<MonitorsSkeleton />}>
         <DashboardModeration />
       </Suspense>
 
-      <Suspense fallback={<RecentSkeleton />}>
+      <Suspense fallback={<WatchlistSkeleton />}>
         <DashboardRecent />
+      </Suspense>
+
+      <Suspense fallback={<StorageSkeleton />}>
+        <DashboardStorage />
       </Suspense>
     </div>
   );

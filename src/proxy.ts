@@ -3,10 +3,16 @@ import { NextResponse } from "next/server";
 
 const PUBLIC_ROUTES = ["/", "/sign-up", "/forgot-password"];
 
+// Open prefixes: viewable while signed in or out, no redirect either way.
+const OPEN_PATH_PREFIXES = ["/u/"];
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname === route);
+  const isOpenPath = OPEN_PATH_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
 
   const isApiAuthRoute = pathname.startsWith("/api/auth");
 
@@ -27,8 +33,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/browse", request.url));
   }
 
-  // Redirect unauthenticated users to sign-in
-  if (!isAuthenticated && !isPublicRoute) {
+  // Redirect unauthenticated users to sign-in (open paths stay public)
+  if (!isAuthenticated && !isPublicRoute && !isOpenPath) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

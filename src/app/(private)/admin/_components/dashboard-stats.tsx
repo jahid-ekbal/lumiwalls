@@ -78,11 +78,15 @@ const DashboardStats = async () => {
       {stats.map((stat) => (
         <Card key={stat.title}>
           <CardHeader>
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle>{stat.title}</CardTitle>
-              <stat.icon className="text-muted-foreground size-4" />
+            <div className="flex items-center gap-3">
+              <span className="bg-muted/60 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+                <stat.icon className="size-4" />
+              </span>
+              <div className="grid gap-0.5">
+                <CardTitle>{stat.title}</CardTitle>
+                <CardDescription>{stat.description}</CardDescription>
+              </div>
             </div>
-            <CardDescription>{stat.description}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tracking-tight">

@@ -73,6 +73,25 @@ const UserUploadsTrendChart = ({ data }: { data: UploadTrendPoint[] }) => {
               left: 0,
               right: 12,
             }}>
+            <defs>
+              <linearGradient
+                id="uploadsWash"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1">
+                <stop
+                  offset="0%"
+                  stopColor="var(--color-uploads)"
+                  stopOpacity={0.5}
+                />
+                <stop
+                  offset="100%"
+                  stopColor="var(--color-uploads)"
+                  stopOpacity={0.03}
+                />
+              </linearGradient>
+            </defs>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="label"
@@ -95,9 +114,9 @@ const UserUploadsTrendChart = ({ data }: { data: UploadTrendPoint[] }) => {
             <Area
               dataKey="uploads"
               type="natural"
-              fill="var(--color-uploads)"
-              fillOpacity={0.4}
+              fill="url(#uploadsWash)"
               stroke="var(--color-uploads)"
+              strokeWidth={1.5}
             />
           </AreaChart>
         </ChartContainer>

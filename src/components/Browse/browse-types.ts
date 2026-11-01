@@ -5,6 +5,13 @@ export type BrowseCategoryOption = {
   count: number;
 };
 
+export type BrowseTagOption = {
+  id: string;
+  name: string;
+  slug: string;
+  count: number;
+};
+
 export type BrowseTagRef = {
   id: string;
   name: string;
@@ -31,6 +38,8 @@ export type BrowseWallpaper = {
   editorsPick: boolean;
   downloadCount: number;
   viewCount: number;
+  favoriteCount: number;
+  favoritedByMe: boolean;
   createdAt: Date;
   category: {
     id: string;

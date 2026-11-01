@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/Sidebar/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/shadcnui/sidebar";
 import { TooltipProvider } from "@/components/shadcnui/tooltip";
 import { auth } from "@/lib/auth";
+import { ensureHandle } from "@/lib/handle";
 import { createMetadata } from "@/lib/metadata";
 import type { LayoutProps } from "@/lib/type";
 import { cookies, headers } from "next/headers";
@@ -19,6 +20,10 @@ const Privatelayout = async ({ children }: LayoutProps) => {
   if (!session) {
     redirect("/");
   }
+
+  // Lazily generate the public handle on first visit; it early-returns
+  // in about one query once set.
+  await ensureHandle(session.user.id);
 
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";

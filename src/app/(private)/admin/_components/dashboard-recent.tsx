@@ -1,10 +1,4 @@
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/shadcnui/avatar";
 import { Badge } from "@/components/shadcnui/badge";
-import { buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
   CardContent,
@@ -12,188 +6,183 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/shadcnui/table";
 import prisma from "@/lib/database/dbClient";
-import { ArrowRightIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Route } from "next";
+import type { LucideIcon } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import {
+  ChevronRightIcon,
+  FlagIcon,
+  HourglassIcon,
+  UserPlusIcon,
+} from "lucide-react";
 import Link from "next/link";
-import { formatDate, initials, PREVIEW_TAKE } from "./dashboard-utils";
+
+const WATCH_TAKE = 4;
+const WATCH_VISIBLE = 10;
+const WATCH_WINDOW_DAYS = 2;
+
+type WatchBadgeVariant = "outline" | "destructive" | "secondary";
+
+type WatchItem = {
+  key: string;
+  at: Date;
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+  badgeLabel: string;
+  badgeVariant: WatchBadgeVariant;
+  href: Route<string> | null;
+};
 
 const DashboardRecent = async () => {
-  const [recentWallpapers, recentUsers] = await Promise.all([
-    prisma.wallpaper.findMany({
-      orderBy: { createdAt: "desc" },
-      take: PREVIEW_TAKE,
-      include: {
-        uploader: { select: { name: true, email: true } },
-        category: { select: { name: true } },
-        moderationQueue: { select: { status: true } },
-      },
-    }),
+  const now = new Date();
+  const windowStart = new Date(now);
+  windowStart.setDate(windowStart.getDate() - WATCH_WINDOW_DAYS);
+
+  const [signups, reports, pendingUploads] = await Promise.all([
     prisma.user.findMany({
+      where: { createdAt: { gte: windowStart } },
       orderBy: { createdAt: "desc" },
-      take: PREVIEW_TAKE,
+      take: WATCH_TAKE,
+      select: { id: true, name: true, email: true, createdAt: true },
+    }),
+    prisma.report.findMany({
+      where: { createdAt: { gte: windowStart } },
+      orderBy: { createdAt: "desc" },
+      take: WATCH_TAKE,
       select: {
         id: true,
-        name: true,
-        email: true,
-        image: true,
-        role: true,
-        banned: true,
+        reason: true,
+        status: true,
         createdAt: true,
+        wallpaper: { select: { title: true } },
+      },
+    }),
+    prisma.wallpaper.findMany({
+      where: { moderationQueue: { is: { status: "PENDING" } } },
+      orderBy: { createdAt: "desc" },
+      take: WATCH_TAKE,
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        uploader: { select: { email: true } },
       },
     }),
   ]);
 
-  return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Recent wallpapers</CardTitle>
-              <CardDescription>Latest {PREVIEW_TAKE} uploads</CardDescription>
-            </div>
-            <Link
-              href={"/browse" as Route}
-              className={buttonVariants({
-                variant: "ghost",
-                size: "sm",
-              })}>
-              <span>Browse all</span>
-              <ArrowRightIcon />
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {recentWallpapers.length === 0 ?
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No wallpapers yet.
-            </p>
-          : <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Wallpaper</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentWallpapers.map((wallpaper) => (
-                  <TableRow key={wallpaper.id}>
-                    <TableCell>
-                      <p className="font-medium">{wallpaper.title}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {wallpaper.uploader.email} on{" "}
-                        {formatDate(wallpaper.createdAt)}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        <Badge
-                          variant={
-                            wallpaper.isApproved ? "secondary" : "outline"
-                          }>
-                          {wallpaper.isApproved ? "Approved" : "Unapproved"}
-                        </Badge>
-                        {wallpaper.moderationQueue ?
-                          <Badge variant="outline">
-                            {wallpaper.moderationQueue.status}
-                          </Badge>
-                        : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          }
-        </CardContent>
-      </Card>
+  const items: WatchItem[] = [];
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Recent users</CardTitle>
-              <CardDescription>Latest {PREVIEW_TAKE} accounts</CardDescription>
-            </div>
-            <Link
-              href={"/admin/users" as Route}
-              className={buttonVariants({
-                variant: "ghost",
-                size: "sm",
-              })}>
-              <span>Manage users</span>
-              <ArrowRightIcon />
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {recentUsers.length === 0 ?
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No users yet.
-            </p>
-          : <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar size="sm">
-                          {user.image ?
-                            <AvatarImage
-                              src={user.image}
-                              alt={user.name}
-                            />
-                          : null}
-                          <AvatarFallback>
-                            {initials(user.name, user.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{user.name}</p>
-                          <p className="text-muted-foreground text-xs">
-                            {user.email}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        <Badge
-                          variant={
-                            user.role === "admin" ? "default" : "secondary"
-                          }>
-                          {user.role ?? "user"}
-                        </Badge>
-                        {user.banned ?
-                          <Badge variant="destructive">Banned</Badge>
-                        : null}
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatDate(user.createdAt)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          }
-        </CardContent>
-      </Card>
-    </div>
+  for (const signup of signups) {
+    items.push({
+      key: `signup-${signup.id}`,
+      at: signup.createdAt,
+      icon: UserPlusIcon,
+      title: signup.name,
+      detail: `${signup.email} joined ${formatDistanceToNow(signup.createdAt, {
+        addSuffix: true,
+      })}`,
+      badgeLabel: "New account",
+      badgeVariant: "outline",
+      href: `/admin/users/${signup.id}` as Route,
+    });
+  }
+
+  for (const report of reports) {
+    items.push({
+      key: `report-${report.id}`,
+      at: report.createdAt,
+      icon: FlagIcon,
+      title: report.wallpaper.title,
+      detail: `${report.reason.toLowerCase()}, filed ${formatDistanceToNow(
+        report.createdAt,
+        { addSuffix: true },
+      )}`,
+      badgeLabel: report.status === "PENDING" ? "Open report" : "Handled",
+      badgeVariant: report.status === "PENDING" ? "destructive" : "outline",
+      href: null,
+    });
+  }
+
+  for (const upload of pendingUploads) {
+    items.push({
+      key: `upload-${upload.id}`,
+      at: upload.createdAt,
+      icon: HourglassIcon,
+      title: upload.title,
+      detail: `${upload.uploader.email} uploaded ${formatDistanceToNow(
+        upload.createdAt,
+        { addSuffix: true },
+      )}`,
+      badgeLabel: "Pending review",
+      badgeVariant: "secondary",
+      href: "/admin/moderation?status=PENDING" as Route,
+    });
+  }
+
+  items.sort((a, b) => b.at.getTime() - a.at.getTime());
+  const visible = items.slice(0, WATCH_VISIBLE);
+
+  const rowClass =
+    "flex items-center gap-3 py-2.5 transition-colors first:pt-0 last:pb-0";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Watchlist</CardTitle>
+        <CardDescription>
+          Newest accounts, reports, and site wide uploads waiting in the last{" "}
+          {WATCH_WINDOW_DAYS} days, plus the current review queue
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {visible.length === 0 ?
+          <p className="text-muted-foreground py-8 text-center text-sm">
+            Quiet lately. No new accounts, reports, or pending uploads.
+          </p>
+        : <ul className="divide-y">
+            {visible.map((item) => {
+              const Icon = item.icon;
+              const content = (
+                <>
+                  <span className="bg-muted/60 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+                    <Icon className="size-4" />
+                  </span>
+                  <div className="grid min-w-0 flex-1 gap-0.5">
+                    <p className="truncate text-sm font-medium">{item.title}</p>
+                    <p className="text-muted-foreground truncate text-xs">
+                      {item.detail}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={item.badgeVariant}
+                    className="shrink-0 justify-center">
+                    {item.badgeLabel}
+                  </Badge>
+                  {item.href ?
+                    <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
+                  : null}
+                </>
+              );
+
+              return (
+                <li key={item.key}>
+                  {item.href ?
+                    <Link
+                      href={item.href}
+                      className={cn(rowClass, "hover:bg-muted/50 rounded-lg")}>
+                      {content}
+                    </Link>
+                  : <div className={rowClass}>{content}</div>}
+                </li>
+              );
+            })}
+          </ul>
+        }
+      </CardContent>
+    </Card>
   );
 };
 

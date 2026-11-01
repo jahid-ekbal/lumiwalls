@@ -1,4 +1,9 @@
-import { parseAsInteger, parseAsString, parseAsStringLiteral } from "nuqs";
+import {
+  parseAsArrayOf,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringLiteral,
+} from "nuqs";
 
 export const browseSortValues = [
   "newest",
@@ -6,6 +11,15 @@ export const browseSortValues = [
   "views",
   "downloads",
 ] as const;
+
+export const browseOrientationValues = [
+  "any",
+  "landscape",
+  "portrait",
+  "square",
+] as const;
+
+export const browseFeaturedValues = ["any", "featured"] as const;
 
 const noScrollPush = {
   history: "push" as const,
@@ -17,6 +31,16 @@ const noScrollPush = {
 export const browseParsers = {
   q: parseAsString.withDefault("").withOptions(noScrollPush),
   category: parseAsString.withDefault("all").withOptions(noScrollPush),
+  tags: parseAsArrayOf(parseAsString).withDefault([]).withOptions(noScrollPush),
+  orientation: parseAsStringLiteral(browseOrientationValues)
+    .withDefault("any")
+    .withOptions(noScrollPush),
+  featured: parseAsStringLiteral(browseFeaturedValues)
+    .withDefault("any")
+    .withOptions(noScrollPush),
+  colors: parseAsArrayOf(parseAsInteger)
+    .withDefault([])
+    .withOptions(noScrollPush),
   sort: parseAsStringLiteral(browseSortValues)
     .withDefault("newest")
     .withOptions(noScrollPush),

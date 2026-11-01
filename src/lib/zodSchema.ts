@@ -153,6 +153,21 @@ export type BrowseSortType = z.infer<typeof browseSortSchema>;
 export const browseSearchParamsSchema = z.object({
   q: z.string().trim().max(100).optional().default(""),
   category: z.string().trim().max(40).optional().default("all"),
+  tags: z
+    .array(z.string().trim().min(1).max(40))
+    .max(12)
+    .optional()
+    .default([]),
+  orientation: z
+    .enum(["any", "landscape", "portrait", "square"])
+    .optional()
+    .default("any"),
+  featured: z.enum(["any", "featured"]).optional().default("any"),
+  colors: z
+    .array(z.coerce.number().int().min(0).max(11))
+    .max(6)
+    .optional()
+    .default([]),
   sort: browseSortSchema.optional().default("newest"),
   page: z.coerce.number().int().min(1).max(1000).optional().default(1),
   preview: z.string().trim().max(100).optional().default(""),
@@ -404,3 +419,61 @@ export const analyticsSearchParamsSchema = z.object({
 export type AnalyticsSearchParamsType = z.infer<
   typeof analyticsSearchParamsSchema
 >;
+
+// ── Profile ──────────────────────────────────────────
+export const profileParamsSchema = z.object({
+  tab: z.enum(["identity", "security"]).optional().default("identity"),
+});
+
+export type ProfileParamsType = z.infer<typeof profileParamsSchema>;
+
+export const profileUpdateSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, { error: "Name is required" })
+    .max(60, { error: "Name must not exceed 60 characters" }),
+  bio: z
+    .string()
+    .trim()
+    .max(500, { error: "Bio must not exceed 500 characters" })
+    .optional()
+    .or(z.literal("")),
+  location: z
+    .string()
+    .trim()
+    .max(80, { error: "Location must not exceed 80 characters" })
+    .optional()
+    .or(z.literal("")),
+});
+
+export type ProfileUpdateType = z.infer<typeof profileUpdateSchema>;
+
+export const followSchema = z.object({
+  handle: z
+    .string()
+    .trim()
+    .min(1, { error: "That profile could not be found" })
+    .max(60, { error: "That profile could not be found" }),
+});
+
+export type FollowType = z.infer<typeof followSchema>;
+
+export const profilePasswordSchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, { error: "Enter your current password" })
+      .max(128, { error: "Current password must not exceed 128 characters" }),
+    newPassword: z
+      .string()
+      .min(8, { error: "New password must be at least 8 characters" })
+      .max(128, { error: "New password must not exceed 128 characters" }),
+    confirmPassword: z.string().min(1, { error: "Confirm the new password" }),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    path: ["confirmPassword"],
+    error: "Passwords do not match",
+  });
+
+export type ProfilePasswordType = z.infer<typeof profilePasswordSchema>;

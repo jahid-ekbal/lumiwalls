@@ -7,8 +7,21 @@ import { s3Client } from "@/lib/storage/b2Client";
 
 export const runtime = "nodejs";
 
-const isUuidKey = (key: string): boolean =>
-  key.startsWith("wallpapers/") && !key.includes("..") && key.length < 500;
+/**
+ * Serveable key patterns. Wallpapers go through the approval and
+ * visibility checks below; avatar and banner objects are 1:1 public
+ * profile images with uuid names and are served to anyone.
+ */
+const isServeKey = (key: string): boolean => {
+  if (key.includes("..") || key.length >= 500) {
+    return false;
+  }
+  return (
+    key.startsWith("wallpapers/") ||
+    key.startsWith("avatars/") ||
+    key.startsWith("banners/")
+  );
+};
 
 export async function GET(
   _request: Request,
@@ -16,39 +29,41 @@ export async function GET(
 ) {
   const { key: segments } = await params;
   const key = segments.join("/");
-  if (!isUuidKey(key)) {
+  if (!isServeKey(key)) {
     return new Response("Not found", { status: 404 });
   }
 
-  const wallpaper = await prisma.wallpaper.findFirst({
-    where: {
-      OR: [
-        { originalUrl: { endsWith: key } },
-        { thumb400Url: { endsWith: key } },
-        { thumb800Url: { endsWith: key } },
-        { thumb1920Url: { endsWith: key } },
-      ],
-    },
-    select: {
-      isApproved: true,
-      isPublic: true,
-      uploaderId: true,
-    },
-  });
-  if (!wallpaper) {
-    return new Response("Not found", { status: 404 });
-  }
-
-  if (!(wallpaper.isApproved && wallpaper.isPublic)) {
-    const session = await auth.api.getSession({
-      headers: await headers(),
+  if (key.startsWith("wallpapers/")) {
+    const wallpaper = await prisma.wallpaper.findFirst({
+      where: {
+        OR: [
+          { originalUrl: { endsWith: key } },
+          { thumb400Url: { endsWith: key } },
+          { thumb800Url: { endsWith: key } },
+          { thumb1920Url: { endsWith: key } },
+        ],
+      },
+      select: {
+        isApproved: true,
+        isPublic: true,
+        uploaderId: true,
+      },
     });
-    const role = session?.user && (session.user as { role?: string }).role;
-    const allowed =
-      session?.user &&
-      (session.user.id === wallpaper.uploaderId || role === "admin");
-    if (!allowed) {
-      return new Response("Forbidden", { status: 403 });
+    if (!wallpaper) {
+      return new Response("Not found", { status: 404 });
+    }
+
+    if (!(wallpaper.isApproved && wallpaper.isPublic)) {
+      const session = await auth.api.getSession({
+        headers: await headers(),
+      });
+      const role = session?.user && (session.user as { role?: string }).role;
+      const allowed =
+        session?.user &&
+        (session.user.id === wallpaper.uploaderId || role === "admin");
+      if (!allowed) {
+        return new Response("Forbidden", { status: 403 });
+      }
     }
   }
 

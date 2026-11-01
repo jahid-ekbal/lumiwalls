@@ -98,12 +98,15 @@ See existing examples under `src/components/Auth/`.
 - `globals.css` imports `shadcn/tailwind.css`; removing it breaks the Base Luma design tokens.
 - Prettier: `singleAttributePerLine: true`, `bracketSameLine: true`, `experimentalTernaries: true`, and `prettier-plugin-tailwindcss` is enabled. New code matches (one prop per line; JSX closing bracket on the same line as the tag).
 - **No em dashes anywhere.** Use colons, semicolons, commas, or parentheses instead. This applies to code, comments, docs, metadata titles, and this file.
+- **Dates: always date-fns.** Use `date-fns` (already a dependency) for any date and time formatting or manipulation, for example `format` and `formatDistanceToNow`. Never hand-format UI dates with `Intl` or `toLocaleString`.
+- **Global design language: immersive cinematic dark gallery.** Achromatic dark base, ambient gradient washes behind large surfaces, oversized cards, expanded type scale, hover-reveal overlay actions. Honor `prefers-reduced-motion` with static equivalents; keep `toImagePath()` for all wallpaper/image URLs.
 
 ## shadcn / Base UI
 
 - `components.json` sets `ui` → `@/components/shadcnui` (not the default `@/components/ui`). Add components with `bunx shadcn add ...`; they land in `src/components/shadcnui/`.
 - The shipped `Button` wraps `Button as ButtonPrimitive` from `@base-ui/react/button`. Do not introduce Radix or `react-aria` primitives; they don't share the Base Luma styling.
 - For a link that looks like a button, use `Link` with `buttonVariants` directly, not `Button` wrapping `Link`. Example: `<Link href="#" className={buttonVariants({ variant: "secondary", size: "sm" })}>Login</Link>` with `buttonVariants` imported from `@/components/shadcnui/button`.
+- **Icon rule:** every new `Button` and every `Link` styled with `buttonVariants` carries a relevant lucide icon. Inline start for actions (`data-icon="inline-start"`), inline end for forward CTAs (`data-icon="inline-end"`). The shipped Button primitive already supports these `data-icon` hooks.
 
 ## Path aliases (`tsconfig.json`)
 
@@ -155,8 +158,17 @@ See existing examples under `src/components/Auth/`.
 - Nested `not-found.tsx` files only handle `notFound()` calls inside their own segment. Unmatched URLs need a root `src/app/not-found.tsx`.
 - Colocated `_components` folders under a route segment are route-private and never become URLs. Use them for streamed async section components.
 - Stored image URLs are absolute (`BETTER_AUTH_URL/api/images/...`). `next/image` rejects absolute same-origin URLs unless the host is in `images.remotePatterns`, so render via `toImagePath()` in `src/lib/imageUrl.ts` which strips to the relative `/api/images/...` path. Plain `img` tags do not need this.
+- Browse deep-linking: the `preview` query param value is the wallpaper slug and open state derives from it (`?preview=slug`). Keep this contract intact when touching browse or the lightbox.
+- Browse view tracking: `viewCount` increments via a sessionStorage-deduped client call (`trackWallpaperView` in `src/server/actions/browse.ts`) fired when the lightbox opens. Do not reintroduce always-increment-on-fetch logic.
 
 - ESLint ignores: `.next/**`, `out/**`, `build/**`, `next-env.d.ts`, `generated/**`.
 - `.env` is gitignored; `.env.example` is the committed template. Do not commit secrets.
 - `CHECKPOINT_DISABLE=1` is set to silence Prisma telemetry.
 - No CI workflows or pre-commit hooks exist. Pre-PR verification: check the port first, then `bun lint` (dev server running) or `bun lint:check` then `bun run build` (port free). See Verification above.
+
+## Testing reminders (browse overhaul)
+
+- Always run `playwright-cli` in `--headed` mode (e.g. `playwright-cli open --headed`). Never use headless for verifications.
+- When a button should look like a link, use `Link` with `buttonVariants` directly, not `Button` wrapping `Link`. Example: `<Link href="#" className={buttonVariants({ variant: "secondary", size: "sm" })}>Login</Link>` with `buttonVariants` from `@/components/shadcnui/button`. Every such `Link`/`Button` carries a relevant lucide icon (`data-icon="inline-start"` for actions, `data-icon="inline-end"` for forward CTAs).
+- Must remove all test data after tests complete (delete test rows; deleting the `user` cascades its `account` and `session` rows).
+- Remove `playwright-cli` test data after tests complete (delete `.playwright-cli/` snapshot/console artifacts).

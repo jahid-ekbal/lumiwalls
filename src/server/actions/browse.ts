@@ -48,3 +48,36 @@ export async function incrementDownloadCount(input: unknown) {
     downloadCount: updated.downloadCount,
   };
 }
+
+export async function trackWallpaperView(input: unknown) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) {
+    return { success: false as const };
+  }
+
+  const parsed = browseDownloadSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false as const };
+  }
+
+  const existing = await prisma.wallpaper.findFirst({
+    where: {
+      id: parsed.data.wallpaperId,
+      isApproved: true,
+      isPublic: true,
+    },
+    select: { id: true },
+  });
+  if (!existing) {
+    return { success: false as const };
+  }
+
+  await prisma.wallpaper.update({
+    where: { id: existing.id },
+    data: { viewCount: { increment: 1 } },
+  });
+
+  return { success: true as const };
+}

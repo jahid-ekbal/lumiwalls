@@ -83,19 +83,19 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.105 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.165 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.165 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --secondary: oklch(0.23 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
+  --muted: oklch(0.23 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(0.23 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -106,11 +106,11 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: oklch(0.155 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: oklch(0.23 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
@@ -129,5 +129,70 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+@keyframes wash-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -1.5%, 0) scale(1.04);
+  }
+}
+
+/* Cinematic ambient layers. Decorative only: pointer-events none, behind content, static washes by default, gentle drift only when motion is allowed. */
+@layer utilities {
+  .wash-cinematic {
+    position: relative;
+    isolation: isolate;
+  }
+  .wash-cinematic::before,
+  .wash-cinematic::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  .wash-cinematic::before {
+    inset: -18% -10% auto -10%;
+    height: 55%;
+    background:
+      radial-gradient(
+        48rem 24rem at 18% 22%,
+        oklch(0.6 0.09 268 / 10%),
+        transparent 65%
+      ),
+      radial-gradient(
+        42rem 22rem at 85% 8%,
+        oklch(0.6 0.08 205 / 7%),
+        transparent 60%
+      );
+  }
+  .wash-cinematic::after {
+    inset: auto -10% -22% -10%;
+    height: 50%;
+    background:
+      radial-gradient(
+        46rem 26rem at 82% 82%,
+        oklch(0.62 0.07 320 / 6%),
+        transparent 62%
+      ),
+      radial-gradient(
+        38rem 22rem at 12% 78%,
+        oklch(0.58 0.08 150 / 5%),
+        transparent 58%
+      );
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wash-cinematic::before {
+    animation: wash-drift 26s ease-in-out infinite;
+  }
+  .wash-cinematic::after {
+    animation: wash-drift 32s ease-in-out infinite reverse;
   }
 }

@@ -14,30 +14,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shadcnui/dialog";
-import { Field, FieldLabel } from "@/components/shadcnui/field";
+import CopyLinkButton from "./CopyLinkButton";
+import { formatCompactCount, initialsOf } from "./countFormat";
+import FavoriteButton from "./FavoriteButton";
+import ReportWallpaperButton from "./ReportWallpaper";
+import ResolutionPickerButton from "./ResolutionPickerButton";
+import ViewOriginalButton from "./ViewOriginalButton";
+import { toImagePath } from "@/lib/imageUrl";
+import { cn } from "@/lib/utils";
+import { trackWallpaperView } from "@/server/actions/browse";
+import { format, formatDistanceToNow } from "date-fns";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/shadcnui/select";
-import { Textarea } from "@/components/shadcnui/textarea";
-import { incrementDownloadCount } from "@/server/actions/browse";
-import { createReport } from "@/server/actions/moderation";
-import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
   DownloadIcon,
   EyeIcon,
-  FlagIcon,
+  HeartIcon,
   ImagesIcon,
-  Loader2Icon,
 } from "lucide-react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
-import { useState } from "react";
-import { toast } from "react-toastify";
-import { toImagePath } from "@/lib/imageUrl";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { browseParsers } from "./browse-search-params";
 import type { BrowseWallpaper } from "./browse-types";
 
@@ -45,18 +42,6 @@ type WallpaperPreviewProps = {
   wallpapers: BrowseWallpaper[];
   previewWallpaper: BrowseWallpaper | null;
   reportedIds?: string[];
-};
-
-const initials = (name: string) => {
-  const source = name.trim();
-  if (!source) {
-    return "?";
-  }
-  const parts = source.split(/\s+/);
-  if (parts.length > 1) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
 };
 
 const formatBytes = (bytes: number | null) => {
@@ -69,118 +54,49 @@ const formatBytes = (bytes: number | null) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const PreviewDetails = ({
+const clampPan = (value: number) => Math.max(-160, Math.min(160, value));
+
+type StagePointer = {
+  x: number;
+  y: number;
+  startX: number;
+  startY: number;
+  moved: boolean;
+};
+
+const LightboxRail = ({
   item,
   reported,
+  index,
+  count,
 }: {
   item: BrowseWallpaper;
   reported: boolean;
+  index: number;
+  count: number;
 }) => {
-  const router = useRouter();
-  const [downloadCount, setDownloadCount] = useState(item.downloadCount);
-  const [downloading, setDownloading] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reason, setReason] = useState("SPAM");
-  const [details, setDetails] = useState("");
-  const [reporting, setReporting] = useState(false);
+  const [downloads, setDownloads] = useState(item.downloadCount);
+  const [favorite, setFavorite] = useState({
+    favorited: item.favoritedByMe,
+    count: item.favoriteCount,
+  });
 
-  const largeImage = toImagePath(
-    item.thumb1920Url ??
-      item.thumb800Url ??
-      item.originalUrl ??
-      item.thumb400Url,
-  );
-  const downloadUrl = toImagePath(item.originalUrl ?? largeImage);
-
-  const handleDownload = async () => {
-    if (downloading) {
-      return;
-    }
-    const previous = downloadCount;
-    setDownloadCount(previous + 1);
-    setDownloading(true);
+  useEffect(() => {
+    const key = `lumiwalls:viewed:${item.id}`;
     try {
-      const result = await incrementDownloadCount({ wallpaperId: item.id });
-      if (result.success) {
-        setDownloadCount(result.downloadCount);
-      } else {
-        setDownloadCount(previous);
-        toast.error("Download failed, please try again");
-      }
-    } catch {
-      setDownloadCount(previous);
-      toast.error("Download failed, please try again");
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  const handleReport = async () => {
-    if (reporting) {
-      return;
-    }
-    if (reason === "OTHER" && !details.trim()) {
-      toast.error("Details are required for Other");
-      return;
-    }
-    setReporting(true);
-    try {
-      const result = await createReport({
-        wallpaperId: item.id,
-        reason,
-        details,
-      });
-      if (!result.success) {
-        toast.error(
-          result.error === "ALREADY_REPORTED" ?
-            "Already reported, awaiting review"
-          : result.error === "CANNOT_REPORT_OWN" ?
-            "Cannot flag your own wallpaper"
-          : result.error === "DETAILS_REQUIRED" ?
-            "Details are required for Other"
-          : "Report failed, please try again",
-        );
+      if (window.sessionStorage.getItem(key) === "1") {
         return;
       }
-      toast.success("Thanks, report submitted");
-      setReportOpen(false);
-      setDetails("");
-      router.refresh();
+      window.sessionStorage.setItem(key, "1");
+      void trackWallpaperView({ wallpaperId: item.id }).catch(() => undefined);
     } catch {
-      toast.error("Report failed, please try again");
-    } finally {
-      setReporting(false);
+      void trackWallpaperView({ wallpaperId: item.id }).catch(() => undefined);
     }
-  };
+  }, [item.id]);
 
   return (
-    <div className="grid gap-4">
-      <DialogHeader>
-        <DialogTitle>{item.title}</DialogTitle>
-        <DialogDescription>
-          {item.category ? `${item.category.name} wallpaper` : "Wallpaper"}
-        </DialogDescription>
-      </DialogHeader>
-      <div className="bg-muted relative aspect-video w-full overflow-hidden rounded-2xl">
-        {largeImage ?
-          <Image
-            src={largeImage}
-            alt={item.title}
-            fill={true}
-            sizes="(max-width: 768px) 90vw, 720px"
-            placeholder={item.blurDataUrl ? "blur" : "empty"}
-            blurDataURL={item.blurDataUrl ?? undefined}
-            className="object-cover"
-          />
-        : <div className="flex h-full w-full items-center justify-center">
-            <ImagesIcon className="text-muted-foreground size-8" />
-          </div>
-        }
-      </div>
-      {item.description ?
-        <p className="text-muted-foreground text-sm">{item.description}</p>
-      : null}
-      <div className="flex flex-wrap gap-1.5">
+    <div className="grid content-start gap-4 p-5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {item.category ?
           <Badge variant="secondary">{item.category.name}</Badge>
         : null}
@@ -188,7 +104,7 @@ const PreviewDetails = ({
           <Badge>Featured</Badge>
         : null}
         {item.editorsPick ?
-          <Badge variant="outline">Editor pick</Badge>
+          <Badge variant="outline">Editors pick</Badge>
         : null}
         {item.aspectRatio ?
           <Badge variant="outline">{item.aspectRatio}</Badge>
@@ -197,6 +113,14 @@ const PreviewDetails = ({
           <Badge variant="outline">{item.format.toUpperCase()}</Badge>
         : null}
       </div>
+      <h2 className="font-heading text-xl font-semibold tracking-tight">
+        {item.title}
+      </h2>
+      {item.description ?
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {item.description}
+        </p>
+      : null}
       {item.tags.length > 0 ?
         <div className="flex flex-wrap gap-1.5">
           {item.tags.map((entry) => (
@@ -208,10 +132,10 @@ const PreviewDetails = ({
           ))}
         </div>
       : null}
-      <dl className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+      <dl className="bg-card/50 grid gap-3 rounded-xl border p-3 text-xs sm:grid-cols-2">
         <div className="grid gap-0.5">
           <dt className="text-muted-foreground">Dimensions</dt>
-          <dd>
+          <dd className="tabular-nums">
             {item.width && item.height ?
               `${item.width} x ${item.height}`
             : "Unknown"}
@@ -223,150 +147,99 @@ const PreviewDetails = ({
         </div>
         <div className="grid gap-0.5">
           <dt className="text-muted-foreground">Uploaded</dt>
-          <dd>
-            {new Date(item.createdAt).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </dd>
+          <dd>{format(new Date(item.createdAt), "MMM d, yyyy")}</dd>
         </div>
         <div className="grid gap-0.5">
-          <dt className="text-muted-foreground">Colors</dt>
-          <dd>
-            {item.dominantColors.length > 0 ?
-              item.dominantColors.slice(0, 3).join(", ")
-            : "Unknown"}
+          <dt className="text-muted-foreground">Added</dt>
+          <dd suppressHydrationWarning={true}>
+            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
           </dd>
         </div>
       </dl>
       {item.dominantColors.length > 0 ?
-        <div className="flex gap-1.5">
-          {item.dominantColors.slice(0, 6).map((color) => (
-            <span
-              key={color}
-              title={color}
-              className="size-5 rounded-full border"
-              style={{ backgroundColor: color }}
-            />
-          ))}
+        <div className="grid gap-1.5">
+          <span className="text-muted-foreground text-xs">Dominant colors</span>
+          <div className="flex gap-1.5">
+            {item.dominantColors.slice(0, 6).map((color) => (
+              <span
+                key={color}
+                title={color}
+                className="size-5 rounded-full border"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
         </div>
       : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2">
-          <Avatar size="sm">
-            {item.uploader.image ?
-              <AvatarImage
-                src={item.uploader.image}
-                alt={item.uploader.name}
-              />
-            : null}
-            <AvatarFallback>{initials(item.uploader.name)}</AvatarFallback>
-          </Avatar>
-          <span className="text-sm">{item.uploader.name}</span>
-        </span>
-        <span className="text-muted-foreground flex items-center gap-3 text-xs">
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2">
+            <Avatar size="sm">
+              {item.uploader.image ?
+                <AvatarImage
+                  src={item.uploader.image}
+                  alt={item.uploader.name}
+                />
+              : null}
+              <AvatarFallback>{initialsOf(item.uploader.name)}</AvatarFallback>
+            </Avatar>
+            <span className="truncate text-sm">{item.uploader.name}</span>
+          </span>
+          {count > 0 && index >= 0 ?
+            <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+              {`${index + 1} of ${count}`}
+            </span>
+          : null}
+        </div>
+        <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs tabular-nums">
           <span className="flex items-center gap-1">
             <EyeIcon className="size-3.5" />
-            {item.viewCount.toLocaleString()} views
+            {`${formatCompactCount(item.viewCount)} views`}
           </span>
           <span className="flex items-center gap-1">
             <DownloadIcon className="size-3.5" />
-            {downloadCount.toLocaleString()} downloads
+            {`${formatCompactCount(downloads)} downloads`}
           </span>
-        </span>
+          <span
+            className={cn(
+              "flex items-center gap-1",
+              favorite.favorited && "text-rose-300",
+            )}>
+            <HeartIcon
+              className={cn("size-3.5", favorite.favorited && "fill-current")}
+            />
+            {`${formatCompactCount(favorite.count)} favorites`}
+          </span>
+        </div>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={reported}
-          onClick={() => setReportOpen(true)}>
-          <FlagIcon className="size-4" />
-          {reported ? "Reported" : "Flag"}
-        </Button>
-        {downloadUrl ?
-          <a
-            href={downloadUrl}
-            download={true}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => {
-              void handleDownload();
-            }}
-            className="bg-primary text-primary-foreground hover:bg-primary/80 inline-flex h-9 items-center justify-center gap-1.5 rounded-4xl px-3 text-sm font-medium transition">
-            {downloading ?
-              <Loader2Icon className="size-4 animate-spin" />
-            : <DownloadIcon className="size-4" />}
-            Download original
-          </a>
-        : <Button
-            type="button"
-            disabled={true}>
-            No file available
-          </Button>
-        }
-      </div>
-      <Dialog
-        open={reportOpen}
-        onOpenChange={(next) => {
-          if (!next) {
-            setReportOpen(false);
+      <div className="flex flex-wrap gap-2">
+        <ResolutionPickerButton
+          wallpaperId={item.id}
+          urls={{
+            thumb400Url: item.thumb400Url,
+            thumb800Url: item.thumb800Url,
+            thumb1920Url: item.thumb1920Url,
+            originalUrl: item.originalUrl,
+          }}
+          downloadCount={downloads}
+          onUpdated={(next) =>
+            setDownloads(next === null ? item.downloadCount : next)
           }
-        }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Flag wallpaper</DialogTitle>
-            <DialogDescription>
-              {`Report ${item.title} for review`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <Field>
-              <FieldLabel htmlFor="flag-reason">Reason</FieldLabel>
-              <Select
-                value={reason}
-                items={[
-                  { value: "SPAM", label: "Spam" },
-                  { value: "NUDITY", label: "Nudity" },
-                  { value: "COPYRIGHT", label: "Copyright" },
-                  { value: "VIOLENCE", label: "Violence" },
-                  { value: "OTHER", label: "Other" },
-                ]}
-                onValueChange={(value) => setReason(value ?? "SPAM")}>
-                <SelectTrigger id="flag-reason">
-                  <SelectValue placeholder="Select reason" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SPAM">Spam</SelectItem>
-                  <SelectItem value="NUDITY">Nudity</SelectItem>
-                  <SelectItem value="COPYRIGHT">Copyright</SelectItem>
-                  <SelectItem value="VIOLENCE">Violence</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="flag-details">Details</FieldLabel>
-              <Textarea
-                id="flag-details"
-                value={details}
-                onChange={(event) => setDetails(event.target.value)}
-                placeholder={
-                  reason === "OTHER" ? "Required for Other" : "Optional details"
-                }
-              />
-            </Field>
-            <Button
-              onClick={() => void handleReport()}
-              disabled={reporting}>
-              {reporting ?
-                <Loader2Icon className="size-4 animate-spin" />
-              : "Submit report"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        />
+        <FavoriteButton
+          wallpaperId={item.id}
+          favorited={favorite.favorited}
+          favoriteCount={favorite.count}
+          onUpdated={(favorited, count) => setFavorite({ favorited, count })}
+        />
+        <CopyLinkButton slug={item.slug} />
+        <ViewOriginalButton originalUrl={item.originalUrl} />
+        <ReportWallpaperButton
+          wallpaperId={item.id}
+          wallpaperTitle={item.title}
+          reported={reported}
+        />
+      </div>
     </div>
   );
 };
@@ -377,11 +250,168 @@ const WallpaperPreview = ({
   reportedIds = [],
 }: WallpaperPreviewProps) => {
   const [preview, setPreview] = useQueryState("preview", browseParsers.preview);
+  const [zoom, setZoom] = useState(false);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const pointer = useRef<StagePointer | null>(null);
+  const moved = useRef(false);
+
   const selected =
     previewWallpaper ??
     wallpapers.find((item) => item.slug === preview) ??
     null;
   const open = preview !== "";
+
+  const currentIndex =
+    open && selected ?
+      wallpapers.findIndex((item) => item.id === selected.id)
+    : -1;
+  const canPrev = currentIndex > 0;
+  const canNext = wallpapers.length > 0 && currentIndex < wallpapers.length - 1;
+
+  const resetZoom = useCallback(() => {
+    setZoom(false);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const openSlug = useCallback(
+    (slug: string) => {
+      resetZoom();
+      void setPreview(slug);
+    },
+    [resetZoom, setPreview],
+  );
+
+  const goPrev = useCallback(() => {
+    if (!canPrev) {
+      return;
+    }
+    const previous = wallpapers[currentIndex - 1];
+    if (!previous) {
+      return;
+    }
+    openSlug(previous.slug);
+  }, [canPrev, currentIndex, openSlug, wallpapers]);
+
+  const goNext = useCallback(() => {
+    if (!canNext) {
+      return;
+    }
+    const next = wallpapers[currentIndex + 1];
+    if (!next) {
+      return;
+    }
+    openSlug(next.slug);
+  }, [canNext, currentIndex, openSlug, wallpapers]);
+
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    if (!open || currentIndex < 0) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && zoomRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        resetZoom();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        event.stopPropagation();
+        goPrev();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        event.stopPropagation();
+        goNext();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [goNext, goPrev, currentIndex, open, resetZoom]);
+
+  if (!open) {
+    return null;
+  }
+
+  const stageUrl =
+    selected ?
+      toImagePath(
+        selected.thumb1920Url ??
+          selected.thumb800Url ??
+          selected.originalUrl ??
+          selected.thumb400Url,
+      )
+    : null;
+
+  const handleStageClick = () => {
+    if (moved.current || !stageUrl) {
+      return;
+    }
+    if (zoom) {
+      resetZoom();
+    } else {
+      setZoom(true);
+    }
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointer.current = {
+      x: event.clientX,
+      y: event.clientY,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+    moved.current = false;
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const current = pointer.current;
+    if (!current) {
+      return;
+    }
+    const dx = event.clientX - current.x;
+    const dy = event.clientY - current.y;
+    if (
+      Math.abs(event.clientX - current.startX) > 8 ||
+      Math.abs(event.clientY - current.startY) > 8
+    ) {
+      current.moved = true;
+      moved.current = true;
+    }
+    if (zoom) {
+      setPan((prevPan) => ({
+        x: clampPan(prevPan.x + dx),
+        y: clampPan(prevPan.y + dy),
+      }));
+    }
+    current.x = event.clientX;
+    current.y = event.clientY;
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const current = pointer.current;
+    pointer.current = null;
+    if (!current) {
+      return;
+    }
+    const dx = event.clientX - current.startX;
+    const dy = event.clientY - current.startY;
+    if (zoom || !current.moved) {
+      return;
+    }
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) {
+        goNext();
+      } else {
+        goPrev();
+      }
+    }
+  };
 
   return (
     <Dialog
@@ -389,22 +419,104 @@ const WallpaperPreview = ({
       onOpenChange={(next) => {
         if (!next) {
           void setPreview("");
+          resetZoom();
         }
       }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        {!selected ?
-          <DialogHeader>
+      <DialogContent
+        className={cn(
+          "gap-0 overflow-hidden p-0 sm:max-w-5xl",
+          selected !== null && "h-[92dvh] max-h-[92dvh]",
+        )}>
+        {selected ?
+          <div className="flex h-full flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_320px]">
+            <DialogTitle className="sr-only">{selected.title}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {selected.category ?
+                `${selected.category.name} wallpaper`
+              : "Wallpaper"}
+            </DialogDescription>
+            <div
+              className={cn(
+                "relative flex h-[48dvh] items-center justify-center overflow-hidden bg-black/60 p-2 lg:h-auto lg:min-h-0",
+                zoom ? "cursor-zoom-out"
+                : stageUrl ? "cursor-zoom-in"
+                : null,
+              )}
+              onClick={handleStageClick}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}>
+              {stageUrl ?
+                <Image
+                  src={stageUrl}
+                  alt={selected.title}
+                  width={selected.width ?? 1920}
+                  height={selected.height ?? 1080}
+                  sizes="(max-width: 1024px) 100vw, 720px"
+                  placeholder={selected.blurDataUrl ? "blur" : "empty"}
+                  blurDataURL={selected.blurDataUrl ?? undefined}
+                  priority={true}
+                  draggable={false}
+                  className={cn(
+                    "h-auto max-h-[78dvh] w-auto max-w-full select-none",
+                    zoom && "scale-125",
+                  )}
+                  style={
+                    zoom ?
+                      { transform: `translate(${pan.x}px, ${pan.y}px)` }
+                    : undefined
+                  }
+                />
+              : <div className="flex w-full items-center justify-center">
+                  <ImagesIcon className="text-muted-foreground size-10" />
+                </div>
+              }
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                disabled={!canPrev}
+                className="absolute top-1/2 left-3 z-20 -translate-y-1/2 border-transparent bg-black/50 text-white hover:bg-black/70"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  goPrev();
+                }}>
+                <ChevronLeftIcon className="size-4" />
+                <span className="sr-only">Previous wallpaper</span>
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                disabled={!canNext}
+                className="absolute top-1/2 right-3 z-20 -translate-y-1/2 border-transparent bg-black/50 text-white hover:bg-black/70"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  goNext();
+                }}>
+                <ChevronRightIcon className="size-4" />
+                <span className="sr-only">Next wallpaper</span>
+              </Button>
+            </div>
+            <div className="border-border/40 min-h-0 flex-1 overflow-y-auto border-t lg:border-t-0">
+              <LightboxRail
+                key={selected.id}
+                item={selected}
+                reported={reportedIds.includes(selected.id)}
+                index={currentIndex}
+                count={wallpapers.length}
+              />
+            </div>
+          </div>
+        : <DialogHeader className="p-6">
             <DialogTitle>Preview not available</DialogTitle>
             <DialogDescription>
               This wallpaper is not available, it may be pending review or
               removed.
             </DialogDescription>
           </DialogHeader>
-        : <PreviewDetails
-            key={selected.id}
-            item={selected}
-            reported={reportedIds.includes(selected.id)}
-          />
         }
       </DialogContent>
     </Dialog>

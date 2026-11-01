@@ -9,14 +9,7 @@ import {
 } from "@/components/shadcnui/card";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
-import {
-  BookmarkIcon,
-  DownloadIcon,
-  EyeIcon,
-  HeartIcon,
-  ImagesIcon,
-  MessageSquareIcon,
-} from "lucide-react";
+import { DownloadIcon, EyeIcon, HeartIcon, ImagesIcon } from "lucide-react";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -30,21 +23,27 @@ const DashboardStats = async () => {
 
   const userId = session.user.id;
 
-  const [totalWallpapers, pendingWallpapers, viewAggregate, downloadAggregate] =
-    await Promise.all([
-      prisma.wallpaper.count({ where: { uploaderId: userId } }),
-      prisma.wallpaper.count({
-        where: { uploaderId: userId, isApproved: false },
-      }),
-      prisma.wallpaper.aggregate({
-        where: { uploaderId: userId },
-        _sum: { viewCount: true },
-      }),
-      prisma.wallpaper.aggregate({
-        where: { uploaderId: userId },
-        _sum: { downloadCount: true },
-      }),
-    ]);
+  const [
+    totalWallpapers,
+    pendingWallpapers,
+    viewAggregate,
+    downloadAggregate,
+    favoriteCount,
+  ] = await Promise.all([
+    prisma.wallpaper.count({ where: { uploaderId: userId } }),
+    prisma.wallpaper.count({
+      where: { uploaderId: userId, isApproved: false },
+    }),
+    prisma.wallpaper.aggregate({
+      where: { uploaderId: userId },
+      _sum: { viewCount: true },
+    }),
+    prisma.wallpaper.aggregate({
+      where: { uploaderId: userId },
+      _sum: { downloadCount: true },
+    }),
+    prisma.favorite.count({ where: { userId } }),
+  ]);
 
   const stats = [
     {
@@ -80,28 +79,12 @@ const DashboardStats = async () => {
       comingSoon: false,
     },
     {
-      title: "Total Comments",
-      value: "-",
-      description: "Comments are planned",
-      icon: MessageSquareIcon,
-      href: null,
-      comingSoon: true,
-    },
-    {
-      title: "Liked Wallpapers",
-      value: "-",
-      description: "Likes are planned",
+      title: "Favorites",
+      value: favoriteCount.toLocaleString(),
+      description: "Wallpapers you saved",
       icon: HeartIcon,
       href: null,
-      comingSoon: true,
-    },
-    {
-      title: "Saved Wallpapers",
-      value: "-",
-      description: "Saved collections are planned",
-      icon: BookmarkIcon,
-      href: null,
-      comingSoon: true,
+      comingSoon: false,
     },
   ];
 

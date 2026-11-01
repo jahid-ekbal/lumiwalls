@@ -22,11 +22,11 @@ import {
   FlagIcon,
   FolderOpenIcon,
   LayoutDashboardIcon,
-  SettingsIcon,
   ShieldIcon,
   SparklesIcon,
   TagsIcon,
   UploadIcon,
+  UserRoundIcon,
   UsersIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -133,14 +133,14 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              isActive={isActivePath("/settings")}
+              isActive={isActivePath("/profile")}
               render={
-                <Link href={"/settings" as Route}>
-                  <SettingsIcon />
-                  <span>Settings</span>
+                <Link href={"/profile" as Route}>
+                  <UserRoundIcon />
+                  <span>Profile</span>
                 </Link>
               }
-              tooltip="Settings"
+              tooltip="Profile"
             />
           </SidebarMenuItem>
         </SidebarMenu>
