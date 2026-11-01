@@ -383,7 +383,7 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
   const previewItem = previewWallpaper ? mapRow(previewWallpaper) : null;
 
   return (
-    <div className="wash-cinematic w-full p-4 sm:p-6 lg:p-8">
+    <div className="w-full p-4 sm:p-6 lg:p-8">
       <div className="mx-auto grid max-w-7xl gap-6">
         <header className="grid gap-1">
           <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">

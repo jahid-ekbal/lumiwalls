@@ -100,6 +100,7 @@ See existing examples under `src/components/Auth/`.
 - **No em dashes anywhere.** Use colons, semicolons, commas, or parentheses instead. This applies to code, comments, docs, metadata titles, and this file.
 - **Dates: always date-fns.** Use `date-fns` (already a dependency) for any date and time formatting or manipulation, for example `format` and `formatDistanceToNow`. Never hand-format UI dates with `Intl` or `toLocaleString`.
 - **Global design language: immersive cinematic dark gallery.** Achromatic dark base, ambient gradient washes behind large surfaces, oversized cards, expanded type scale, hover-reveal overlay actions. Honor `prefers-reduced-motion` with static equivalents; keep `toImagePath()` for all wallpaper/image URLs.
+- Ambient background: use `<AmbientBackground />` from `src/components/Ambient/AmbientBackground.tsx` inside a `relative isolate` container. The layer is `absolute inset-0` with `z-index: -1` and `overflow: hidden`; the `isolate` is required so the negative z-index stays above the container background and below its content. The private layout owns the private app wash; do not re-add `wash-cinematic` to individual pages.
 
 ## shadcn / Base UI
 

@@ -1,3 +1,4 @@
+import AmbientBackground from "@/components/Ambient/AmbientBackground";
 import PrivateHeader from "@/components/Header/PrivateHeader";
 import { AppSidebar } from "@/components/Sidebar/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/shadcnui/sidebar";
@@ -32,7 +33,8 @@ const Privatelayout = async ({ children }: LayoutProps) => {
     <TooltipProvider>
       <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="isolate">
+          <AmbientBackground />
           <PrivateHeader />
           {children}
         </SidebarInset>

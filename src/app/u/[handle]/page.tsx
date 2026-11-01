@@ -1,3 +1,4 @@
+import AmbientBackground from "@/components/Ambient/AmbientBackground";
 import { initialsOf } from "@/components/Browse/countFormat";
 import BrowseGrid from "@/components/Browse/BrowseGrid";
 import type { BrowseWallpaper } from "@/components/Browse/browse-types";
@@ -142,7 +143,8 @@ const PublicProfilePage = async ({
 
   if (isBanned) {
     return (
-      <div className="wash-cinematic grid min-h-svh w-full place-items-center p-4">
+      <div className="relative isolate grid min-h-svh w-full place-items-center p-4">
+        <AmbientBackground />
         <Card className="max-w-sm">
           <CardContent className="grid justify-items-center gap-3 text-center">
             <ShieldOffIcon className="text-muted-foreground size-8" />
@@ -263,7 +265,8 @@ const PublicProfilePage = async ({
   const avatarSrc = toImagePath(profile.image);
 
   return (
-    <div className="wash-cinematic min-h-svh w-full">
+    <div className="relative isolate min-h-svh w-full">
+      <AmbientBackground />
       <div className="mx-auto grid max-w-5xl gap-6 px-4 pt-6 pb-16 sm:px-6 lg:px-8">
         <div>
           <Link
