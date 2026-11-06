@@ -126,7 +126,6 @@ model Category {
   id          String      @id @default(cuid())
   name        String      @unique
   slug        String      @unique
-  description String?     @db.Text
   icon        String?
   color       String?
   createdAt   DateTime    @default(now())

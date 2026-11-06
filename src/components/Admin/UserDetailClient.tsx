@@ -44,12 +44,14 @@ import {
   setRole,
   setWallpaperVisibility,
 } from "@/server/actions/users";
+import { format } from "date-fns";
 import { Loader2Icon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { adminActionErrorMessage } from "./adminActionErrors";
 
 type DetailUser = {
   id: string;
@@ -82,6 +84,8 @@ type DetailWallpaper = {
 type Props = {
   user: DetailUser;
   wallpapers: DetailWallpaper[];
+  currentUserId: string;
+  isProtected: boolean;
 };
 
 const initials = (name: string, email: string) => {
@@ -96,7 +100,12 @@ const initials = (name: string, email: string) => {
   return source.slice(0, 2).toUpperCase();
 };
 
-const UserDetailClient = ({ user, wallpapers }: Props) => {
+const UserDetailClient = ({
+  user,
+  wallpapers,
+  currentUserId,
+  isProtected,
+}: Props) => {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [banOpen, setBanOpen] = useState(false);
@@ -105,6 +114,12 @@ const UserDetailClient = ({ user, wallpapers }: Props) => {
   const [roleOpen, setRoleOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+
+  const isSelf = user.id === currentUserId;
+  const canChangeRole = !isSelf && !isProtected;
+  const canBan = !isSelf && !isProtected && user.role !== "admin";
+  const canDelete = !isSelf && !isProtected;
+  const hasActions = canChangeRole || canBan || canDelete;
 
   const submitBan = async () => {
     const nextBanned = !user.banned;
@@ -125,7 +140,7 @@ const UserDetailClient = ({ user, wallpapers }: Props) => {
     });
     setBusy(null);
     if (!result.success) {
-      toast.error("Ban update failed");
+      toast.error(adminActionErrorMessage(result.error));
       return;
     }
     toast.success(nextBanned ? "User banned and signed out" : "User unbanned");
@@ -140,11 +155,7 @@ const UserDetailClient = ({ user, wallpapers }: Props) => {
     const result = await setRole({ userId: user.id, role: nextRole });
     setBusy(null);
     if (!result.success) {
-      toast.error(
-        result.error === "CANNOT_DEMOTE_SELF" ? "You cannot demote yourself"
-        : result.error === "LAST_ADMIN" ? "At least one admin must remain"
-        : "Role update failed",
-      );
+      toast.error(adminActionErrorMessage(result.error));
       return;
     }
     toast.success(
@@ -163,7 +174,7 @@ const UserDetailClient = ({ user, wallpapers }: Props) => {
     const result = await deleteUser({ userId: user.id });
     setBusy(null);
     if (!result.success) {
-      toast.error("Delete failed");
+      toast.error(adminActionErrorMessage(result.error));
       return;
     }
     toast.success("User permanently deleted");
@@ -216,7 +227,7 @@ const UserDetailClient = ({ user, wallpapers }: Props) => {
         <CardHeader>
           <CardTitle>Account</CardTitle>
           <CardDescription>
-            {`Joined ${new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+            {`Joined ${format(new Date(user.createdAt), "MMM d, yyyy")}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -240,6 +251,12 @@ const UserDetailClient = ({ user, wallpapers }: Props) => {
               {user.emailVerified ?
                 <Badge variant="outline">Verified</Badge>
               : <Badge variant="outline">Unverified</Badge>}
+              {isSelf ?
+                <Badge variant="outline">You</Badge>
+              : null}
+              {isProtected ?
+                <Badge variant="outline">Protected</Badge>
+              : null}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
@@ -265,32 +282,55 @@ const UserDetailClient = ({ user, wallpapers }: Props) => {
               {`Ban reason: ${user.banReason}`}
             </p>
           : null}
+          {isSelf ?
+            <p className="text-muted-foreground text-sm">
+              This is your account. You cannot change your own role, ban
+              yourself, or delete yourself.
+            </p>
+          : null}
+          {isProtected ?
+            <p className="text-muted-foreground text-sm">
+              This is the primary admin account. It cannot be demoted, banned,
+              or deleted.
+            </p>
+          : null}
           <div className="flex flex-wrap gap-1">
-            <Button
-              size="sm"
-              variant={user.banned ? "outline" : "destructive"}
-              onClick={() => {
-                setBanReason("");
-                setBanExpiry("permanent");
-                setBanOpen(true);
-              }}>
-              {user.banned ? "Unban" : "Ban"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setRoleOpen(true)}>
-              {user.role === "admin" ? "Demote" : "Promote"}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setDeleteConfirm("");
-                setDeleteOpen(true);
-              }}>
-              Delete
-            </Button>
+            {canBan ?
+              <Button
+                size="sm"
+                variant={user.banned ? "outline" : "destructive"}
+                onClick={() => {
+                  setBanReason("");
+                  setBanExpiry("permanent");
+                  setBanOpen(true);
+                }}>
+                {user.banned ? "Unban" : "Ban"}
+              </Button>
+            : null}
+            {canChangeRole ?
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRoleOpen(true)}>
+                {user.role === "admin" ? "Demote" : "Promote"}
+              </Button>
+            : null}
+            {canDelete ?
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setDeleteConfirm("");
+                  setDeleteOpen(true);
+                }}>
+                Delete
+              </Button>
+            : null}
+            {hasActions ? null : (
+              <p className="text-muted-foreground text-sm">
+                No account actions are available.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

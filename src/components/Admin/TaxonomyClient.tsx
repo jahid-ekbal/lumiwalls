@@ -36,7 +36,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shadcnui/table";
-import { Textarea } from "@/components/shadcnui/textarea";
 import {
   categoryCreateSchema,
   categoryUpdateSchema,
@@ -74,7 +73,6 @@ type CategoryRow = {
   id: string;
   name: string;
   slug: string;
-  description: string | null;
   icon: string | null;
   color: string | null;
   _count: { wallpapers: number };
@@ -110,7 +108,7 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
 
   const categoryForm = useForm<CategoryCreateType>({
     resolver: zodResolver(categoryCreateSchema),
-    defaultValues: { name: "", slug: "", description: "", icon: "", color: "" },
+    defaultValues: { name: "", slug: "", icon: "", color: "" },
     mode: "all",
   });
 
@@ -165,7 +163,6 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
     categoryForm.reset({
       name: "",
       slug: "",
-      description: "",
       icon: "",
       color: "",
     });
@@ -177,7 +174,6 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
     categoryForm.reset({
       name: cat.name,
       slug: cat.slug,
-      description: cat.description ?? "",
       icon: cat.icon ?? "",
       color: cat.color ?? "",
     });
@@ -350,7 +346,6 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Slug</TableHead>
-                    <TableHead>Description</TableHead>
                     <TableHead>Wallpapers</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -374,9 +369,6 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {cat.slug}
-                      </TableCell>
-                      <TableCell className="max-w-[240px] truncate text-xs">
-                        {cat.description ?? "—"}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">
@@ -543,25 +535,6 @@ const TaxonomyClient = ({ categories, tags }: Props) => {
                 : "Generated automatically from name"}
               </FieldDescription>
             </Field>
-            <Controller
-              name="description"
-              control={categoryForm.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={field.name}>Description</FieldLabel>
-                  <Textarea
-                    {...field}
-                    id={field.name}
-                    placeholder="Landscapes, forests, oceans"
-                    rows={2}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
             <div className="grid grid-cols-2 gap-4">
               <Controller
                 name="icon"

@@ -35,5 +35,20 @@ export const auth = betterAuth({
       verify: verifyPasswordFunction,
     },
   },
+  // All user mutations go through our server actions so the admin safety
+  // guards cannot be bypassed by calling Better Auth directly.
+  disabledPaths: [
+    "/admin/set-role",
+    "/admin/create-user",
+    "/admin/update-user",
+    "/admin/ban-user",
+    "/admin/unban-user",
+    "/admin/impersonate-user",
+    "/admin/stop-impersonating",
+    "/admin/revoke-user-session",
+    "/admin/revoke-user-sessions",
+    "/admin/remove-user",
+    "/admin/set-user-password",
+  ],
   plugins: [admin(), nextCookies()],
 });

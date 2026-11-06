@@ -1,7 +1,10 @@
 import UsersClient from "@/components/Admin/UsersClient";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import type { UsersSearchParamsType } from "@/lib/zodSchema";
+import { isPrimaryAdminEmail } from "@/server/admin";
 import type { Prisma } from "@generated/prisma/client";
+import { headers } from "next/headers";
 
 const PAGE_SIZE = 12;
 
@@ -10,6 +13,7 @@ type Props = {
 };
 
 const UsersContent = async ({ params }: Props) => {
+  const session = await auth.api.getSession({ headers: await headers() });
   const query = params.q.trim();
   const sortDirection = params.sort === "oldest" ? "asc" : "desc";
 
@@ -66,6 +70,7 @@ const UsersContent = async ({ params }: Props) => {
       params={params}
       counts={{ total, totalAdmins, totalBanned }}
       totalPages={totalPages}
+      currentUserId={session?.user.id ?? ""}
       users={rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -77,6 +82,7 @@ const UsersContent = async ({ params }: Props) => {
         banExpires: row.banExpires?.toISOString() ?? null,
         createdAt: row.createdAt.toISOString(),
         wallpaperCount: row._count.wallpapers,
+        isProtected: isPrimaryAdminEmail(row.email),
       }))}
     />
   );

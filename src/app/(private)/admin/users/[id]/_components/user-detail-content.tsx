@@ -1,5 +1,8 @@
 import UserDetailClient from "@/components/Admin/UserDetailClient";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
+import { isPrimaryAdminEmail } from "@/server/admin";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 type Props = {
@@ -7,6 +10,7 @@ type Props = {
 };
 
 const UserDetailContent = async ({ userId }: Props) => {
+  const session = await auth.api.getSession({ headers: await headers() });
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -53,6 +57,8 @@ const UserDetailContent = async ({ userId }: Props) => {
 
   return (
     <UserDetailClient
+      currentUserId={session?.user.id ?? ""}
+      isProtected={isPrimaryAdminEmail(user.email)}
       user={{
         id: user.id,
         name: user.name,

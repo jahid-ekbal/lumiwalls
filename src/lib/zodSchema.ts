@@ -91,12 +91,6 @@ export const categoryCreateSchema = z.object({
     })
     .optional()
     .or(z.literal("")),
-  description: z
-    .string()
-    .trim()
-    .max(500, { error: "Description must not exceed 500 characters" })
-    .optional()
-    .or(z.literal("")),
   icon: z.string().trim().max(40).optional().or(z.literal("")),
   color: z
     .string()

@@ -77,7 +77,7 @@ export async function createCategory(input: unknown) {
     };
   }
 
-  const { name, description, color } = parsed.data;
+  const { name, color } = parsed.data;
   let slug = parsed.data.slug?.trim() ? parsed.data.slug.trim() : slugify(name);
   if (!slug) slug = slugify(name);
 
@@ -100,7 +100,6 @@ export async function createCategory(input: unknown) {
       data: {
         name,
         slug,
-        description: description?.trim() ? description.trim() : null,
         icon: iconCheck.icon,
         color: color?.trim() ? color.trim() : null,
       },
@@ -108,6 +107,7 @@ export async function createCategory(input: unknown) {
 
     revalidatePath("/admin/taxonomy");
     revalidatePath("/upload");
+    revalidatePath("/upload/new");
     return { success: true as const, data: category };
   } catch (error) {
     return mapUniqueViolation(error);
@@ -129,7 +129,7 @@ export async function updateCategory(input: unknown) {
     };
   }
 
-  const { id, name, description, color } = parsed.data;
+  const { id, name, color } = parsed.data;
 
   const existing = await prisma.category.findUnique({ where: { id } });
   if (!existing) {
@@ -166,7 +166,6 @@ export async function updateCategory(input: unknown) {
       data: {
         name,
         slug,
-        description: description?.trim() ? description.trim() : null,
         icon: iconCheck.icon,
         color: color?.trim() ? color.trim() : null,
       },
@@ -174,6 +173,7 @@ export async function updateCategory(input: unknown) {
 
     revalidatePath("/admin/taxonomy");
     revalidatePath("/upload");
+    revalidatePath("/upload/new");
     return { success: true as const, data: updated };
   } catch (error) {
     return mapUniqueViolation(error);

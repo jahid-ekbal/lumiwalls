@@ -46,7 +46,8 @@ import {
 import type { UsersSearchParamsType } from "@/lib/zodSchema";
 import { setBan } from "@/server/actions/moderation";
 import { deleteUser, setRole } from "@/server/actions/users";
-import { Loader2Icon, SearchIcon } from "lucide-react";
+import { format } from "date-fns";
+import { Loader2Icon, LockIcon, SearchIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,6 +59,7 @@ import {
 } from "nuqs";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { adminActionErrorMessage } from "./adminActionErrors";
 
 type UserRow = {
   id: string;
@@ -70,12 +72,14 @@ type UserRow = {
   banExpires: string | null;
   createdAt: string;
   wallpaperCount: number;
+  isProtected: boolean;
 };
 
 type Props = {
   params: UsersSearchParamsType;
   counts: { total: number; totalAdmins: number; totalBanned: number };
   totalPages: number;
+  currentUserId: string;
   users: UserRow[];
 };
 
@@ -86,15 +90,11 @@ const queryOptions = {
   scroll: false,
 };
 
-const formatISO = (value: string | null) => {
+const formatDate = (value: string | null) => {
   if (!value) {
     return "Never";
   }
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return format(new Date(value), "MMM d, yyyy");
 };
 
 const initials = (name: string, email: string) => {
@@ -109,7 +109,13 @@ const initials = (name: string, email: string) => {
   return source.slice(0, 2).toUpperCase();
 };
 
-const UsersClient = ({ params, counts, totalPages, users }: Props) => {
+const UsersClient = ({
+  params,
+  counts,
+  totalPages,
+  currentUserId,
+  users,
+}: Props) => {
   const router = useRouter();
   const [query, setQuery] = useQueryState(
     "q",
@@ -214,11 +220,7 @@ const UsersClient = ({ params, counts, totalPages, users }: Props) => {
     });
     setBusyId(null);
     if (!result.success) {
-      toast.error(
-        result.error === "CANNOT_BAN_SELF" ? "You cannot ban yourself"
-        : result.error === "CANNOT_BAN_ADMIN" ? "Admins cannot be banned"
-        : "Ban update failed",
-      );
+      toast.error(adminActionErrorMessage(result.error));
       return;
     }
     toast.success(nextBanned ? "User banned and signed out" : "User unbanned");
@@ -237,11 +239,7 @@ const UsersClient = ({ params, counts, totalPages, users }: Props) => {
     const result = await setRole({ userId: roleTarget.id, role: nextRole });
     setBusyId(null);
     if (!result.success) {
-      toast.error(
-        result.error === "CANNOT_DEMOTE_SELF" ? "You cannot demote yourself"
-        : result.error === "LAST_ADMIN" ? "At least one admin must remain"
-        : "Role update failed",
-      );
+      toast.error(adminActionErrorMessage(result.error));
       return;
     }
     toast.success(
@@ -265,11 +263,7 @@ const UsersClient = ({ params, counts, totalPages, users }: Props) => {
     const result = await deleteUser({ userId: deleteTarget.id });
     setBusyId(null);
     if (!result.success) {
-      toast.error(
-        result.error === "CANNOT_DELETE_SELF" ? "You cannot delete yourself"
-        : result.error === "LAST_ADMIN" ? "At least one admin must remain"
-        : "Delete failed",
-      );
+      toast.error(adminActionErrorMessage(result.error));
       return;
     }
     toast.success("User permanently deleted");
@@ -385,6 +379,12 @@ const UsersClient = ({ params, counts, totalPages, users }: Props) => {
               <TableBody>
                 {users.map((row) => {
                   const busy = busyId === row.id;
+                  const isSelf = row.id === currentUserId;
+                  const canChangeRole = !isSelf && !row.isProtected;
+                  const canBan =
+                    !isSelf && !row.isProtected && row.role !== "admin";
+                  const canDelete = !isSelf && !row.isProtected;
+                  const hasActions = canChangeRole || canBan || canDelete;
                   return (
                     <TableRow key={row.id}>
                       <TableCell>
@@ -405,9 +405,17 @@ const UsersClient = ({ params, counts, totalPages, users }: Props) => {
                             <p className="text-muted-foreground text-xs">
                               {row.email}
                             </p>
-                            {row.banned ?
-                              <Badge variant="destructive">Banned</Badge>
-                            : null}
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {row.banned ?
+                                <Badge variant="destructive">Banned</Badge>
+                              : null}
+                              {isSelf ?
+                                <Badge variant="outline">You</Badge>
+                              : null}
+                              {row.isProtected ?
+                                <Badge variant="outline">Protected</Badge>
+                              : null}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
@@ -420,38 +428,50 @@ const UsersClient = ({ params, counts, totalPages, users }: Props) => {
                         </Badge>
                       </TableCell>
                       <TableCell>{row.wallpaperCount}</TableCell>
-                      <TableCell>{formatISO(row.createdAt)}</TableCell>
+                      <TableCell>{formatDate(row.createdAt)}</TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                           <Link
                             href={`/admin/users/${row.id}` as Route}
                             className="inline-flex h-8 items-center justify-center gap-1.5 rounded-4xl border px-3 text-sm font-medium transition">
                             Detail
                           </Link>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={busy}
-                            onClick={() => openBan(row)}>
-                            {row.banned ? "Unban" : "Ban"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => setRoleTarget(row)}>
-                            {row.role === "admin" ? "Demote" : "Promote"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={busy}
-                            onClick={() => {
-                              setDeleteTarget(row);
-                              setDeleteConfirm("");
-                            }}>
-                            Delete
-                          </Button>
+                          {canBan ?
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={busy}
+                              onClick={() => openBan(row)}>
+                              {row.banned ? "Unban" : "Ban"}
+                            </Button>
+                          : null}
+                          {canChangeRole ?
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => setRoleTarget(row)}>
+                              {row.role === "admin" ? "Demote" : "Promote"}
+                            </Button>
+                          : null}
+                          {canDelete ?
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={busy}
+                              onClick={() => {
+                                setDeleteTarget(row);
+                                setDeleteConfirm("");
+                              }}>
+                              Delete
+                            </Button>
+                          : null}
+                          {hasActions ? null : (
+                            <span className="text-muted-foreground inline-flex items-center gap-1 px-1 text-xs">
+                              <LockIcon className="size-3.5" />
+                              No actions
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

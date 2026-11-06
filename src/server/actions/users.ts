@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import { deleteManyFromS3 } from "@/lib/fileStorage";
+import { isPrimaryAdminEmail } from "@/server/admin";
 import {
   deleteUserSchema,
   setRoleSchema,
@@ -54,24 +55,43 @@ export async function setRole(input: unknown) {
   const { userId, role } = parsed.data;
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, email: true },
   });
   if (!target) {
     return { success: false as const, error: "NOT_FOUND" as const };
   }
 
-  if (role === "user" && userId === authCheck.session.user.id) {
-    return { success: false as const, error: "CANNOT_DEMOTE_SELF" as const };
-  }
-
-  if (role === "user" && target.role === "admin") {
-    const adminCount = await prisma.user.count({ where: { role: "admin" } });
-    if (adminCount <= 1) {
-      return { success: false as const, error: "LAST_ADMIN" as const };
+  if (role === "user") {
+    if (userId === authCheck.session.user.id) {
+      return { success: false as const, error: "CANNOT_DEMOTE_SELF" as const };
+    }
+    if (isPrimaryAdminEmail(target.email)) {
+      return { success: false as const, error: "PROTECTED_ADMIN" as const };
     }
   }
 
-  await prisma.user.update({ where: { id: userId }, data: { role } });
+  if ((target.role ?? "user") === role) {
+    return { success: true as const };
+  }
+
+  if (role === "user" && target.role === "admin") {
+    const outcome = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "user" WHERE role = 'admin' FOR UPDATE`;
+      const adminCount = await tx.user.count({ where: { role: "admin" } });
+      if (adminCount <= 1) {
+        return "LAST_ADMIN" as const;
+      }
+      await tx.user.update({ where: { id: userId }, data: { role } });
+      // A demoted admin must not keep an active admin session.
+      await tx.session.deleteMany({ where: { userId } });
+      return "OK" as const;
+    });
+    if (outcome === "LAST_ADMIN") {
+      return { success: false as const, error: "LAST_ADMIN" as const };
+    }
+  } else {
+    await prisma.user.update({ where: { id: userId }, data: { role } });
+  }
 
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
@@ -104,6 +124,7 @@ export async function deleteUser(input: unknown) {
     select: {
       id: true,
       role: true,
+      email: true,
       wallpapers: {
         select: {
           originalUrl: true,
@@ -117,11 +138,8 @@ export async function deleteUser(input: unknown) {
   if (!target) {
     return { success: false as const, error: "NOT_FOUND" as const };
   }
-  if (target.role === "admin") {
-    const adminCount = await prisma.user.count({ where: { role: "admin" } });
-    if (adminCount <= 1) {
-      return { success: false as const, error: "LAST_ADMIN" as const };
-    }
+  if (isPrimaryAdminEmail(target.email)) {
+    return { success: false as const, error: "PROTECTED_ADMIN" as const };
   }
 
   const keys = target.wallpapers
@@ -133,10 +151,35 @@ export async function deleteUser(input: unknown) {
     ])
     .filter((key): key is string => Boolean(key));
 
-  if (keys.length > 0) {
-    await deleteManyFromS3(keys);
+  const outcome = await prisma.$transaction(async (tx) => {
+    if (target.role === "admin") {
+      await tx.$queryRaw`SELECT id FROM "user" WHERE role = 'admin' FOR UPDATE`;
+      const adminCount = await tx.user.count({ where: { role: "admin" } });
+      if (adminCount <= 1) {
+        return "LAST_ADMIN" as const;
+      }
+    }
+    await tx.user.delete({ where: { id: userId } });
+    return "OK" as const;
+  });
+
+  if (outcome === "LAST_ADMIN") {
+    return { success: false as const, error: "LAST_ADMIN" as const };
   }
-  await prisma.user.delete({ where: { id: userId } });
+
+  // The row is gone, so storage cleanup is best effort. A failure here must
+  // not report the delete as failed or resurrect the user.
+  if (keys.length > 0) {
+    try {
+      await deleteManyFromS3(keys);
+    } catch (error) {
+      console.error(
+        "Failed to delete S3 files for deleted user",
+        userId,
+        error,
+      );
+    }
+  }
 
   revalidatePath("/admin/users");
   revalidatePath("/admin");

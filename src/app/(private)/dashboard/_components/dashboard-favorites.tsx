@@ -47,7 +47,9 @@ const DashboardFavorites = async () => {
   });
 
   return (
-    <Card>
+    <Card
+      id="favorites"
+      className="scroll-mt-20">
       <CardHeader>
         <CardTitle>Favorites</CardTitle>
         <CardDescription>

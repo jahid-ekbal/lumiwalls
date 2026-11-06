@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import { deleteManyFromS3 } from "@/lib/fileStorage";
+import { isPrimaryAdminEmail } from "@/server/admin";
 import {
   banUserSchema,
   bulkReviewSchema,
@@ -207,27 +208,29 @@ export async function setBan(input: unknown) {
 
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, email: true },
   });
   if (!target) {
     return { success: false as const, error: "NOT_FOUND" as const };
   }
-  if (target.role === "admin") {
+  if (banned && isPrimaryAdminEmail(target.email)) {
+    return { success: false as const, error: "PROTECTED_ADMIN" as const };
+  }
+  if (banned && target.role === "admin") {
     return { success: false as const, error: "CANNOT_BAN_ADMIN" as const };
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      banned,
-      banReason: banned ? banReason.trim() : null,
-      banExpires: banned ? (banExpires ?? null) : null,
-    },
-  });
-
-  if (banned) {
-    await prisma.session.deleteMany({ where: { userId } });
-  }
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        banned,
+        banReason: banned ? banReason.trim() : null,
+        banExpires: banned ? (banExpires ?? null) : null,
+      },
+    }),
+    ...(banned ? [prisma.session.deleteMany({ where: { userId } })] : []),
+  ]);
 
   revalidatePath("/admin/moderation");
   revalidatePath("/admin/users");

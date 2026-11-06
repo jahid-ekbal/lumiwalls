@@ -1,5 +1,3 @@
-import { Badge } from "@/components/shadcnui/badge";
-import { buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
   CardContent,
@@ -52,50 +50,46 @@ const DashboardStats = async () => {
       description: "Wallpapers you uploaded",
       icon: ImagesIcon,
       href: "/browse" as Route,
-      comingSoon: false,
     },
     {
       title: "Pending Approval",
       value: pendingWallpapers.toLocaleString(),
       description: "Awaiting moderation before Browse",
       icon: ImagesIcon,
-      href: null,
-      comingSoon: false,
+      href: "/profile" as Route,
     },
     {
       title: "Total Views",
       value: (viewAggregate._sum.viewCount ?? 0).toLocaleString(),
       description: "Sum across your uploads",
       icon: EyeIcon,
-      href: null,
-      comingSoon: false,
+      href: "/browse?sort=views" as Route,
     },
     {
       title: "Total Downloads",
       value: (downloadAggregate._sum.downloadCount ?? 0).toLocaleString(),
       description: "Sum across your uploads",
       icon: DownloadIcon,
-      href: null,
-      comingSoon: false,
+      href: "/browse?sort=downloads" as Route,
     },
     {
       title: "Favorites",
       value: favoriteCount.toLocaleString(),
       description: "Wallpapers you saved",
       icon: HeartIcon,
-      href: null,
-      comingSoon: false,
+      href: "/dashboard#favorites" as Route,
     },
   ];
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {stats.map((stat) => {
-        const card = (
-          <Card
-            className={
-              stat.href ? "hover:bg-muted/40 transition-colors" : undefined
-            }>
+      {stats.map((stat) => (
+        <Link
+          key={stat.title}
+          href={stat.href}
+          aria-label={`${stat.title}: ${stat.description}`}
+          className="focus-visible:ring-ring/50 block h-full rounded-4xl focus-visible:ring-[3px]">
+          <Card className="hover:bg-muted/40 h-full transition-colors">
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle>{stat.title}</CardTitle>
@@ -104,42 +98,13 @@ const DashboardStats = async () => {
               <CardDescription>{stat.description}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-3xl font-semibold tracking-tight">
-                  {stat.value}
-                </p>
-                {stat.comingSoon && (
-                  <Badge variant="secondary">Coming soon</Badge>
-                )}
-              </div>
-              {stat.href && (
-                <span
-                  className={buttonVariants({
-                    variant: "ghost",
-                    size: "sm",
-                    className: "mt-2 px-0",
-                  })}>
-                  <span>View in browse</span>
-                </span>
-              )}
+              <p className="text-3xl font-semibold tracking-tight">
+                {stat.value}
+              </p>
             </CardContent>
           </Card>
-        );
-
-        if (stat.href) {
-          return (
-            <Link
-              key={stat.title}
-              href={stat.href}
-              aria-label={`${stat.title}: ${stat.description}`}
-              className="block rounded-4xl">
-              {card}
-            </Link>
-          );
-        }
-
-        return <div key={stat.title}>{card}</div>;
-      })}
+        </Link>
+      ))}
     </div>
   );
 };
