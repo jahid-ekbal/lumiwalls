@@ -2,29 +2,29 @@
 
 import BoundaryErrorCard from "@/components/Errors/BoundaryErrorCard";
 
-type TaxonomyErrorProps = {
+type CategoriesErrorProps = {
   error: Error & { digest?: string };
   reset?: () => void;
   unstable_retry?: () => void;
 };
 
-const TaxonomyError = ({
+const CategoriesError = ({
   error,
   reset,
   unstable_retry,
-}: TaxonomyErrorProps) => {
+}: CategoriesErrorProps) => {
   return (
     <BoundaryErrorCard
-      title="Could not load taxonomy"
-      description="Something went wrong while loading categories and tags. Please try again."
+      title="Could not load categories"
+      description="Something went wrong while loading categories. Please try again."
       error={error}
       reset={reset}
       unstable_retry={unstable_retry}
-      route="/admin/taxonomy"
+      route="/admin/categories"
       backHref="/admin"
       backLabel="Back to dashboard"
     />
   );
 };
 
-export default TaxonomyError;
+export default CategoriesError;

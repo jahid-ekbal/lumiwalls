@@ -29,15 +29,15 @@ const modules = [
   },
   {
     title: "Categories",
-    description: "Curate the taxonomy applied at upload",
+    description: "Curate the categories applied at upload",
     icon: LayoutGridIcon,
-    href: "/admin/taxonomy" as Route,
+    href: "/admin/categories" as Route,
   },
   {
     title: "Tags",
     description: "Tune the free-form tags behind filters",
     icon: TagIcon,
-    href: "/admin/taxonomy" as Route,
+    href: "/admin/tags" as Route,
   },
   {
     title: "Users",

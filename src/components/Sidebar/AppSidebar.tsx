@@ -22,6 +22,7 @@ import {
   FlagIcon,
   FolderOpenIcon,
   LayoutDashboardIcon,
+  LayoutGridIcon,
   ShieldIcon,
   SparklesIcon,
   TagsIcon,
@@ -41,7 +42,8 @@ const items = [
 
 const adminItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboardIcon },
-  { title: "Taxonomy", url: "/admin/taxonomy", icon: TagsIcon },
+  { title: "Categories", url: "/admin/categories", icon: LayoutGridIcon },
+  { title: "Tags", url: "/admin/tags", icon: TagsIcon },
   { title: "Moderation", url: "/admin/moderation", icon: ShieldIcon },
   { title: "Users", url: "/admin/users", icon: UsersIcon },
   { title: "Reports", url: "/admin/reports", icon: FlagIcon },

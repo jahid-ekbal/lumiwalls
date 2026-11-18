@@ -5,6 +5,15 @@ import "./src/lib/env/serverEnv";
 const nextConfig: NextConfig = {
   reactCompiler: true,
   typedRoutes: true,
+  async redirects() {
+    return [
+      {
+        source: "/admin/taxonomy",
+        destination: "/admin/categories",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

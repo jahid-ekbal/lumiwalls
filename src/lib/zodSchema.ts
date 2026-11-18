@@ -71,7 +71,7 @@ export const finalizeUploadSchema = z.object({
 
 export type FinalizeUploadType = z.infer<typeof finalizeUploadSchema>;
 
-// ── Taxonomy (admin) ─────────────────────────────────
+// ── Categories and tags (admin) ─────────────────────
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
 

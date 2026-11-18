@@ -777,8 +777,8 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
               <Alert>
                 <AlertTitle>No tags available</AlertTitle>
                 <AlertDescription>
-                  An admin needs to create tags in Taxonomy before you can tag
-                  wallpapers.
+                  An admin needs to create tags in the Tags page before you can
+                  tag wallpapers.
                 </AlertDescription>
               </Alert>
             : <>

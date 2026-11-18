@@ -1,18 +1,12 @@
 import { Card, CardContent, CardHeader } from "@/components/shadcnui/card";
 import { Skeleton } from "@/components/shadcnui/skeleton";
 
-const TaxonomyLoading = () => {
+const CategoriesLoading = () => {
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="grid gap-2">
-          <Skeleton className="h-7 w-44" />
-          <Skeleton className="h-4 w-72" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-9 w-32" />
-          <Skeleton className="h-9 w-24" />
-        </div>
+      <div className="grid gap-2">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-72" />
       </div>
       <Card>
         <CardHeader>
@@ -34,4 +28,4 @@ const TaxonomyLoading = () => {
   );
 };
 
-export default TaxonomyLoading;
+export default CategoriesLoading;

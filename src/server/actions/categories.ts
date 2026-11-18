@@ -6,12 +6,7 @@ import { Prisma } from "@generated/prisma/client";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import { slugify } from "@/lib/slugify";
-import {
-  categoryCreateSchema,
-  categoryUpdateSchema,
-  tagCreateSchema,
-  tagUpdateSchema,
-} from "@/lib/zodSchema";
+import { categoryCreateSchema, categoryUpdateSchema } from "@/lib/zodSchema";
 
 let cachedIconNames: Set<string> | null = null;
 
@@ -105,7 +100,7 @@ export async function createCategory(input: unknown) {
       },
     });
 
-    revalidatePath("/admin/taxonomy");
+    revalidatePath("/admin/categories");
     revalidatePath("/upload");
     revalidatePath("/upload/new");
     return { success: true as const, data: category };
@@ -171,7 +166,7 @@ export async function updateCategory(input: unknown) {
       },
     });
 
-    revalidatePath("/admin/taxonomy");
+    revalidatePath("/admin/categories");
     revalidatePath("/upload");
     revalidatePath("/upload/new");
     return { success: true as const, data: updated };
@@ -201,134 +196,7 @@ export async function deleteCategory(input: unknown) {
 
   await prisma.category.delete({ where: { id } });
 
-  revalidatePath("/admin/taxonomy");
-  revalidatePath("/upload");
-  return { success: true as const };
-}
-
-export async function createTag(input: unknown) {
-  const authCheck = await requireAdmin();
-  if (!authCheck.authorized) {
-    return { success: false as const, error: authCheck.error };
-  }
-
-  const parsed = tagCreateSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false as const,
-      error: "VALIDATION_ERROR" as const,
-      issues: parsed.error.issues,
-    };
-  }
-
-  const rawName = parsed.data.name.trim();
-  const normalizedName = rawName.toLowerCase();
-  let slug =
-    parsed.data.slug?.trim() ?
-      parsed.data.slug.trim()
-    : slugify(normalizedName);
-  if (!slug) slug = slugify(normalizedName);
-
-  const existingName = await prisma.tag.findUnique({
-    where: { name: normalizedName },
-  });
-  if (existingName) {
-    return { success: false as const, error: "NAME_EXISTS" as const };
-  }
-  const existingSlug = await prisma.tag.findUnique({ where: { slug } });
-  if (existingSlug) {
-    return { success: false as const, error: "SLUG_EXISTS" as const };
-  }
-
-  try {
-    const tag = await prisma.tag.create({
-      data: { name: normalizedName, slug },
-    });
-
-    revalidatePath("/admin/taxonomy");
-    revalidatePath("/upload");
-    return { success: true as const, data: tag };
-  } catch (error) {
-    return mapUniqueViolation(error);
-  }
-}
-
-export async function updateTag(input: unknown) {
-  const authCheck = await requireAdmin();
-  if (!authCheck.authorized) {
-    return { success: false as const, error: authCheck.error };
-  }
-
-  const parsed = tagUpdateSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false as const,
-      error: "VALIDATION_ERROR" as const,
-      issues: parsed.error.issues,
-    };
-  }
-
-  const { id } = parsed.data;
-  const rawName = parsed.data.name.trim();
-  const normalizedName = rawName.toLowerCase();
-
-  const existing = await prisma.tag.findUnique({ where: { id } });
-  if (!existing) {
-    return { success: false as const, error: "NOT_FOUND" as const };
-  }
-
-  const submittedSlug = parsed.data.slug?.trim() ? parsed.data.slug.trim() : "";
-  const slug =
-    !submittedSlug || submittedSlug === slugify(existing.name) ?
-      slugify(normalizedName)
-    : submittedSlug;
-
-  const nameConflict = await prisma.tag.findFirst({
-    where: { name: normalizedName, id: { not: id } },
-  });
-  if (nameConflict) {
-    return { success: false as const, error: "NAME_EXISTS" as const };
-  }
-  const slugConflict = await prisma.tag.findFirst({
-    where: { slug, id: { not: id } },
-  });
-  if (slugConflict) {
-    return { success: false as const, error: "SLUG_EXISTS" as const };
-  }
-
-  try {
-    const updated = await prisma.tag.update({
-      where: { id },
-      data: { name: normalizedName, slug },
-    });
-
-    revalidatePath("/admin/taxonomy");
-    revalidatePath("/upload");
-    return { success: true as const, data: updated };
-  } catch (error) {
-    return mapUniqueViolation(error);
-  }
-}
-
-export async function deleteTag(input: unknown) {
-  const authCheck = await requireAdmin();
-  if (!authCheck.authorized) {
-    return { success: false as const, error: authCheck.error };
-  }
-
-  const id = typeof input === "string" ? input : (input as { id?: string })?.id;
-  if (!id || typeof id !== "string") {
-    return { success: false as const, error: "VALIDATION_ERROR" as const };
-  }
-
-  const existing = await prisma.tag.findUnique({ where: { id } });
-  if (!existing) {
-    return { success: false as const, error: "NOT_FOUND" as const };
-  }
-
-  await prisma.tag.delete({ where: { id } });
-
-  revalidatePath("/admin/taxonomy");
+  revalidatePath("/admin/categories");
   revalidatePath("/upload");
   return { success: true as const };
 }

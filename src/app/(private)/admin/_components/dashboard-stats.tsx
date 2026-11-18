@@ -66,7 +66,7 @@ const DashboardStats = async () => {
       icon: DownloadIcon,
     },
     {
-      title: "Taxonomy",
+      title: "Categories and tags",
       value: (categoryCount + tagCount).toLocaleString(),
       description: `${categoryCount} categories, ${tagCount} tags`,
       icon: TagsIcon,
