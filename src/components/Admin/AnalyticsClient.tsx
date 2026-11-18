@@ -30,6 +30,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { parseAsStringLiteral } from "nuqs";
+import { DownloadIcon } from "lucide-react";
 
 type TrendPoint = {
   date: string;
@@ -64,6 +65,26 @@ type TopUploader = {
   downloads: number;
 };
 
+type StorageFormat = {
+  format: string;
+  files: number;
+  bytes: number;
+};
+
+type StorageSummary = {
+  totalFiles: number;
+  totalBytes: number;
+  sizedFiles: number;
+  averageBytes: number;
+  approvedCount: number;
+  approvedBytes: number;
+  notApprovedCount: number;
+  notApprovedBytes: number;
+  hiddenCount: number;
+  formatCount: number;
+  formats: StorageFormat[];
+};
+
 type Props = {
   params: AnalyticsSearchParamsType;
   trend: TrendPoint[];
@@ -94,6 +115,7 @@ type Props = {
   topCategories: NamedCount[];
   topTags: NamedCount[];
   topUploaders: TopUploader[];
+  storage: StorageSummary;
 };
 
 const downloadCSV = (
@@ -116,6 +138,21 @@ const downloadCSV = (
   URL.revokeObjectURL(url);
 };
 
+const formatBytes = (bytes: number) => {
+  if (bytes === 0) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / 1024 ** exponent;
+  return `${value.toFixed(exponent === 0 || value >= 10 ? 0 : 1)} ${
+    units[exponent]
+  }`;
+};
+
 const AnalyticsClient = ({
   params,
   trend,
@@ -127,6 +164,7 @@ const AnalyticsClient = ({
   topCategories,
   topTags,
   topUploaders,
+  storage,
 }: Props) => {
   const [range, setRange] = useQueryState(
     "range",
@@ -143,6 +181,47 @@ const AnalyticsClient = ({
 
   const latency = (value: number | null) =>
     value === null ? "No reviews yet" : `${value}h avg`;
+
+  const exportStorageCSV = () => {
+    downloadCSV(
+      "storage.csv",
+      ["section", "metric", "format", "files", "bytes"],
+      [
+        ["Summary", "Total storage", "", "", storage.totalBytes],
+        ["Summary", "Files", "", storage.totalFiles, ""],
+        [
+          "Summary",
+          "Average file size",
+          "",
+          storage.sizedFiles,
+          storage.averageBytes,
+        ],
+        [
+          "Summary",
+          "Approved",
+          "",
+          storage.approvedCount,
+          storage.approvedBytes,
+        ],
+        [
+          "Summary",
+          "Not approved",
+          "",
+          storage.notApprovedCount,
+          storage.notApprovedBytes,
+        ],
+        ["Summary", "Not public", "", storage.hiddenCount, ""],
+        ["Summary", "Distinct formats", "", storage.formatCount, ""],
+        ...storage.formats.map((row) => [
+          "Format",
+          "",
+          row.format,
+          row.files,
+          row.bytes,
+        ]),
+      ],
+    );
+  };
 
   return (
     <div className="grid gap-6">
@@ -525,6 +604,95 @@ const AnalyticsClient = ({
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Storage</CardTitle>
+              <CardDescription>
+                All-time library footprint by filesize, approval state, and file
+                format
+              </CardDescription>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportStorageCSV}>
+              <DownloadIcon data-icon="inline-start" />
+              Export CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            {[
+              {
+                label: "Total storage",
+                value: formatBytes(storage.totalBytes),
+              },
+              {
+                label: "Files",
+                value: storage.totalFiles.toLocaleString(),
+              },
+              {
+                label: "Average file size",
+                value: formatBytes(storage.averageBytes),
+              },
+              {
+                label: "Approved",
+                value: storage.approvedCount.toLocaleString(),
+              },
+              {
+                label: "Not approved",
+                value: storage.notApprovedCount.toLocaleString(),
+              },
+              {
+                label: "Not public",
+                value: storage.hiddenCount.toLocaleString(),
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="bg-muted rounded-2xl p-3">
+                <p className="text-muted-foreground text-xs">{item.label}</p>
+                <p className="text-xl font-semibold">{item.value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-2">
+            <p className="text-muted-foreground text-sm">
+              {`By format (${storage.formatCount})`}
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Format</TableHead>
+                  <TableHead>Wallpapers</TableHead>
+                  <TableHead>Size</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {storage.formats.length === 0 ?
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="text-muted-foreground text-center">
+                      No wallpapers yet
+                    </TableCell>
+                  </TableRow>
+                : storage.formats.map((row) => (
+                    <TableRow key={row.format}>
+                      <TableCell>{row.format}</TableCell>
+                      <TableCell>{row.files.toLocaleString()}</TableCell>
+                      <TableCell>{formatBytes(row.bytes)}</TableCell>
+                    </TableRow>
+                  ))
+                }
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

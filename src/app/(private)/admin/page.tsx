@@ -11,12 +11,10 @@ import {
   LinksSkeleton,
   MonitorsSkeleton,
   StatsSkeleton,
-  StorageSkeleton,
   TrendSkeleton,
   WatchlistSkeleton,
 } from "./_components/dashboard-skeletons";
 import DashboardStats from "./_components/dashboard-stats";
-import DashboardStorage from "./_components/dashboard-storage";
 import DashboardTrend from "./_components/dashboard-trend";
 import { TREND_DAYS } from "./_components/dashboard-utils";
 
@@ -65,10 +63,6 @@ const AdminDashboardPage = () => {
 
       <Suspense fallback={<WatchlistSkeleton />}>
         <DashboardRecent />
-      </Suspense>
-
-      <Suspense fallback={<StorageSkeleton />}>
-        <DashboardStorage />
       </Suspense>
     </div>
   );

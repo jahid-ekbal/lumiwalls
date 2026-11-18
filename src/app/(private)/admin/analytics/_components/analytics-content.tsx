@@ -57,6 +57,9 @@ const AnalyticsContent = async ({ params }: Props) => {
     placementsExpired,
     flaggedFeatured,
     flaggedPick,
+    storageApprovalGroups,
+    hiddenWallpaperCount,
+    storageFormatGroups,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.wallpaper.count(),
@@ -155,7 +158,50 @@ const AnalyticsContent = async ({ params }: Props) => {
     }),
     prisma.wallpaper.count({ where: { featured: true } }),
     prisma.wallpaper.count({ where: { editorsPick: true } }),
+    prisma.wallpaper.groupBy({
+      by: ["isApproved"],
+      _count: { _all: true, fileSize: true },
+      _sum: { fileSize: true },
+    }),
+    prisma.wallpaper.count({ where: { isPublic: false } }),
+    prisma.wallpaper.groupBy({
+      by: ["format"],
+      _count: { _all: true },
+      _sum: { fileSize: true },
+    }),
   ]);
+
+  const approvedGroup = storageApprovalGroups.find((row) => row.isApproved);
+  const notApprovedGroup = storageApprovalGroups.find((row) => !row.isApproved);
+
+  const approvedCount = approvedGroup?._count._all ?? 0;
+  const approvedBytes = approvedGroup?._sum.fileSize ?? 0;
+  const notApprovedCount = notApprovedGroup?._count._all ?? 0;
+  const notApprovedBytes = notApprovedGroup?._sum.fileSize ?? 0;
+  const totalFiles = approvedCount + notApprovedCount;
+  const totalBytes = approvedBytes + notApprovedBytes;
+  const sizedFiles =
+    (approvedGroup?._count.fileSize ?? 0) +
+    (notApprovedGroup?._count.fileSize ?? 0);
+  const averageBytes =
+    sizedFiles === 0 ? 0 : Math.round(totalBytes / sizedFiles);
+
+  const formatTotals = new Map<string, { files: number; bytes: number }>();
+  for (const group of storageFormatGroups) {
+    const key = group.format ?? "unknown";
+    const current = formatTotals.get(key) ?? { files: 0, bytes: 0 };
+    current.files += group._count._all;
+    current.bytes += group._sum.fileSize ?? 0;
+    formatTotals.set(key, current);
+  }
+  const storageFormatRows = [...formatTotals.entries()]
+    .map(([format, totals]) => ({ format, ...totals }))
+    .sort(
+      (a, b) =>
+        b.bytes - a.bytes ||
+        b.files - a.files ||
+        a.format.localeCompare(b.format),
+    );
 
   const trend = buildTrend(
     trendWallpapers.map((row) => row.createdAt),
@@ -242,6 +288,19 @@ const AnalyticsContent = async ({ params }: Props) => {
         views: row._sum.viewCount ?? 0,
         downloads: row._sum.downloadCount ?? 0,
       }))}
+      storage={{
+        totalFiles,
+        totalBytes,
+        sizedFiles,
+        averageBytes,
+        approvedCount,
+        approvedBytes,
+        notApprovedCount,
+        notApprovedBytes,
+        hiddenCount: hiddenWallpaperCount,
+        formatCount: storageFormatRows.length,
+        formats: storageFormatRows,
+      }}
     />
   );
 };

@@ -116,24 +116,3 @@ export const LinksSkeleton = () => {
     </div>
   );
 };
-
-export const StorageSkeleton = () => {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-5 w-28" />
-        <Skeleton className="h-4 w-64" />
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton
-              key={index}
-              className="h-[68px] w-44 rounded-2xl"
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
