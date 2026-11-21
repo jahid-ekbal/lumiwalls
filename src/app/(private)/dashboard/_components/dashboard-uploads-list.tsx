@@ -2,6 +2,7 @@ import { Badge } from "@/components/shadcnui/badge";
 import { buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -10,7 +11,7 @@ import {
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import { toImagePath } from "@/lib/imageUrl";
-import { ImagesIcon, UploadIcon } from "lucide-react";
+import { ArrowRightIcon, ImagesIcon, UploadIcon } from "lucide-react";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import Image from "next/image";
@@ -69,6 +70,17 @@ const DashboardUploadsList = async () => {
       <CardHeader>
         <CardTitle>My uploads</CardTitle>
         <CardDescription>Your latest wallpapers</CardDescription>
+        <CardAction>
+          <Link
+            href={"/upload" as Route}
+            className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            View all
+            <ArrowRightIcon
+              data-icon="inline-end"
+              className="size-4"
+            />
+          </Link>
+        </CardAction>
       </CardHeader>
       <CardContent>
         {uploads.length === 0 ?
@@ -78,7 +90,7 @@ const DashboardUploadsList = async () => {
               You have not uploaded anything yet. Share your first wallpaper.
             </p>
             <Link
-              href={"/upload" as Route}
+              href={"/upload/new" as Route}
               className={buttonVariants({ variant: "outline", size: "sm" })}>
               <UploadIcon
                 data-icon="inline-start"

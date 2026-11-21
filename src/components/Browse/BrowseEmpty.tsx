@@ -41,7 +41,7 @@ const BrowseEmpty = ({ filtered }: BrowseEmptyProps) => {
           Clear all filters
         </Button>
       : <Link
-          href="/upload"
+          href="/upload/new"
           className={cn(buttonVariants({ variant: "secondary" }))}>
           <UploadIcon
             data-icon="inline-start"

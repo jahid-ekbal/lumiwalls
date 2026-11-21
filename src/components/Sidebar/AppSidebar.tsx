@@ -21,6 +21,7 @@ import {
   CompassIcon,
   FlagIcon,
   FolderOpenIcon,
+  ImagesIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
   ShieldIcon,
@@ -36,7 +37,8 @@ import { usePathname } from "next/navigation";
 
 const items = [
   { title: "Browse", url: "/browse", icon: CompassIcon },
-  { title: "Upload", url: "/upload", icon: UploadIcon },
+  { title: "My uploads", url: "/upload", icon: ImagesIcon },
+  { title: "New upload", url: "/upload/new", icon: UploadIcon },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
 ];
 
@@ -64,6 +66,16 @@ export function AppSidebar() {
     return path === url || path.startsWith(url + "/");
   }
 
+  function isActiveItem(url: string) {
+    if (url === "/upload") {
+      return (
+        path === "/upload" ||
+        (path.startsWith("/upload/") && !path.startsWith("/upload/new"))
+      );
+    }
+    return isActivePath(url);
+  }
+
   return (
     <Sidebar
       collapsible="icon"
@@ -83,7 +95,7 @@ export function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    isActive={isActivePath(item.url)}
+                    isActive={isActiveItem(item.url)}
                     render={
                       <Link href={item.url as Route}>
                         <item.icon />

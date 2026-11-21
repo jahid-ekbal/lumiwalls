@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
-import { deleteManyFromS3 } from "@/lib/fileStorage";
+import { deleteManyFromS3, extractS3Key } from "@/lib/fileStorage";
 import { isPrimaryAdminEmail } from "@/server/admin";
 import {
   deleteUserSchema,
@@ -23,18 +23,6 @@ async function requireAdmin() {
     return { authorized: false as const, error: "FORBIDDEN" as const };
   }
   return { authorized: true as const, session };
-}
-
-function extractS3Key(url: string | null): string | null {
-  if (!url) {
-    return null;
-  }
-  const marker = "/api/images/";
-  const index = url.indexOf(marker);
-  if (index === -1) {
-    return url.startsWith("wallpapers/") ? url : null;
-  }
-  return url.slice(index + marker.length);
 }
 
 export async function setRole(input: unknown) {

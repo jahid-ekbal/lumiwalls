@@ -1,19 +1,14 @@
 "use client";
 
+import TagSelector from "@/components/Upload/TagSelector";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from "@/components/shadcnui/alert";
 import { Badge } from "@/components/shadcnui/badge";
-import { Button } from "@/components/shadcnui/button";
-import { Checkbox } from "@/components/shadcnui/checkbox";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/shadcnui/field";
+import { Button, buttonVariants } from "@/components/shadcnui/button";
+import { Field, FieldError, FieldLabel } from "@/components/shadcnui/field";
 import { Input } from "@/components/shadcnui/input";
 import { Progress } from "@/components/shadcnui/progress";
 import {
@@ -24,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/shadcnui/select";
 import { Textarea } from "@/components/shadcnui/textarea";
+import { toImagePath } from "@/lib/imageUrl";
 import {
   getPresignedExpiryDate,
   getRemainingSeconds,
@@ -32,12 +28,15 @@ import { ALLOWED_MIME_TYPES, MAX_UPLOAD_SIZE } from "@/lib/zodSchema";
 import { finalizeUpload, initiateUpload } from "@/server/actions/upload";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  ClockIcon,
   ImageIcon,
+  ImagesIcon,
   Loader2Icon,
-  SearchIcon,
   UploadIcon,
   XIcon,
 } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
@@ -100,7 +99,14 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [tagSearch, setTagSearch] = useState("");
+  const [tagSelectorKey, setTagSelectorKey] = useState(0);
+  const [uploaded, setUploaded] = useState<{
+    title: string;
+    slug: string;
+    thumb400Url: string | null;
+    thumb800Url: string | null;
+    originalUrl: string | null;
+  } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [stage, setStage] = useState<UploadStage>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -266,35 +272,6 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     if (!file) return;
     validateAndSetFile(file);
   };
-
-  const toggleTag = useCallback((tagId: string) => {
-    setSelectedTagIds((prev) => {
-      if (prev.includes(tagId)) return prev.filter((id) => id !== tagId);
-      if (prev.length >= 10) {
-        toast.error("Maximum 10 tags allowed");
-        return prev;
-      }
-      return [...prev, tagId];
-    });
-  }, []);
-
-  const removeTag = useCallback((tagId: string) => {
-    setSelectedTagIds((prev) => prev.filter((id) => id !== tagId));
-  }, []);
-
-  const filteredTags = useMemo(() => {
-    const q = tagSearch.trim().toLowerCase();
-    if (!q) return availableTags;
-    return availableTags.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q),
-    );
-  }, [availableTags, tagSearch]);
-
-  const selectedTags = useMemo(
-    () => availableTags.filter((t) => selectedTagIds.includes(t.id)),
-    [availableTags, selectedTagIds],
-  );
 
   const categoryItems = useMemo(
     () =>
@@ -498,9 +475,13 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
         return;
       }
 
-      toast.success(
-        "Wallpaper uploaded successfully! It is pending approval before appearing in Browse.",
-      );
+      setUploaded({
+        title: trimmedTitle,
+        slug: finalizeResult.data.slug,
+        thumb400Url: finalizeResult.data.thumb400Url,
+        thumb800Url: finalizeResult.data.thumb800Url,
+        originalUrl: finalizeResult.data.originalUrl,
+      });
 
       reset({
         title: "",
@@ -508,7 +489,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
         categoryId: "",
       });
       setSelectedTagIds([]);
-      setTagSearch("");
+      setTagSelectorKey((value) => value + 1);
       handleClearFile();
       setUploadProgress(0);
       setPresignedExpiresAt(null);
@@ -535,6 +516,67 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       `${dimensions.width} x ${dimensions.height} • ${getAspectRatioLabel(dimensions.width, dimensions.height)}`
     : selectedFile ? selectedFile.type.split("/")[1]?.toUpperCase() || "IMAGE"
     : null;
+
+  if (uploaded) {
+    const previewUrl = toImagePath(
+      uploaded.thumb800Url ?? uploaded.thumb400Url ?? uploaded.originalUrl,
+    );
+
+    return (
+      <div className="grid items-start gap-6 lg:grid-cols-12">
+        <div className="bg-muted/40 relative aspect-video overflow-hidden rounded-3xl border lg:col-span-5">
+          {previewUrl ?
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={previewUrl}
+              alt={uploaded.title}
+              className="size-full object-cover"
+            />
+          : <div className="text-muted-foreground flex size-full items-center justify-center">
+              <ImageIcon className="size-10" />
+            </div>
+          }
+        </div>
+
+        <div className="grid gap-5 lg:col-span-7">
+          <div className="grid gap-3">
+            <Badge
+              variant="secondary"
+              className="w-fit">
+              <ClockIcon className="size-3" />
+              Pending review
+            </Badge>
+            <h2 className="font-heading text-2xl font-semibold tracking-tight">
+              Upload complete
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              <span className="text-foreground font-medium">
+                {uploaded.title}
+              </span>{" "}
+              is now waiting for moderator approval. You can follow its status
+              from My uploads.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={"/upload" as Route}
+              className={buttonVariants()}>
+              <ImagesIcon data-icon="inline-start" />
+              View my uploads
+            </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setUploaded(null)}>
+              <UploadIcon data-icon="inline-start" />
+              Upload another
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -767,81 +809,12 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
             )}
           />
 
-          {/* Tags - strict selection only */}
-          <Field>
-            <FieldLabel>Tags</FieldLabel>
-            <FieldDescription>
-              Select from admin-created tags only, max 10. Search to filter.
-            </FieldDescription>
-            {availableTags.length === 0 ?
-              <Alert>
-                <AlertTitle>No tags available</AlertTitle>
-                <AlertDescription>
-                  An admin needs to create tags in the Tags page before you can
-                  tag wallpapers.
-                </AlertDescription>
-              </Alert>
-            : <>
-                <div className="relative">
-                  <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                  <Input
-                    placeholder="Search tags"
-                    value={tagSearch}
-                    onChange={(e) => setTagSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                {selectedTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTags.map((tag) => (
-                      <Badge
-                        key={tag.id}
-                        variant="secondary"
-                        className="gap-1 pr-1">
-                        {tag.name}
-                        <button
-                          type="button"
-                          aria-label={`Remove tag ${tag.name}`}
-                          onClick={() => removeTag(tag.id)}
-                          className="hover:bg-muted ml-1 rounded-full p-0.5">
-                          <XIcon className="size-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <div className="bg-muted/30 max-h-48 overflow-y-auto rounded-xl border p-2">
-                  {filteredTags.length === 0 ?
-                    <p className="text-muted-foreground py-4 text-center text-xs">
-                      No matching tags
-                    </p>
-                  : <div className="grid gap-1">
-                      {filteredTags.map((tag) => {
-                        const checked = selectedTagIds.includes(tag.id);
-                        return (
-                          <label
-                            key={tag.id}
-                            className="hover:bg-accent flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={() => toggleTag(tag.id)}
-                            />
-                            <span className="flex-1">{tag.name}</span>
-                            <span className="text-muted-foreground text-xs">
-                              {tag.slug}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  }
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  {selectedTagIds.length} / 10 selected
-                </p>
-              </>
-            }
-          </Field>
+          <TagSelector
+            key={tagSelectorKey}
+            tags={availableTags}
+            selectedTagIds={selectedTagIds}
+            onSelectedChange={setSelectedTagIds}
+          />
         </div>
       </div>
       {/* Progress */}

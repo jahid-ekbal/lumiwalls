@@ -69,6 +69,24 @@ export const uploadWebpToS3 = async (
 };
 
 /**
+ * Extract the bucket key from a stored image URL.
+ *
+ * Uploads persist public URLs shaped like `/api/images/wallpapers/...`,
+ * while in-progress rows may still hold a raw `wallpapers/...` key.
+ */
+export const extractS3Key = (url: string | null): string | null => {
+  if (!url) {
+    return null;
+  }
+  const marker = "/api/images/";
+  const index = url.indexOf(marker);
+  if (index === -1) {
+    return url.startsWith("wallpapers/") ? url : null;
+  }
+  return url.slice(index + marker.length);
+};
+
+/**
  * Delete a single object from S3. Never throws, missing keys are ignored.
  */
 export const deleteFromS3 = async (key: string): Promise<void> => {

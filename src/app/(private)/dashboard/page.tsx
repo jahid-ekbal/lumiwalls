@@ -50,7 +50,7 @@ const DashboardPage = () => {
             <span>Browse</span>
           </Link>
           <Link
-            href={"/upload" as Route}
+            href={"/upload/new" as Route}
             className={buttonVariants({ variant: "default" })}>
             <UploadIcon />
             <span>Upload</span>

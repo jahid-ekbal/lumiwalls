@@ -56,7 +56,7 @@ const UserUploadsTrendChart = ({ data }: { data: UploadTrendPoint[] }) => {
               No uploads in the last 30 days.
             </p>
             <Link
-              href={"/upload" as Route}
+              href={"/upload/new" as Route}
               className={buttonVariants({ size: "sm" })}>
               <UploadIcon />
               <span>Upload wallpaper</span>

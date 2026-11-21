@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
-import { deleteManyFromS3 } from "@/lib/fileStorage";
+import { deleteManyFromS3, extractS3Key } from "@/lib/fileStorage";
 import { isPrimaryAdminEmail } from "@/server/admin";
 import {
   banUserSchema,
@@ -40,18 +40,6 @@ function combineNotes(existing: string | null, next: string): string | null {
     return existing;
   }
   return `${existing}\n---\n${trimmed}`;
-}
-
-function extractS3Key(url: string | null): string | null {
-  if (!url) {
-    return null;
-  }
-  const marker = "/api/images/";
-  const index = url.indexOf(marker);
-  if (index === -1) {
-    return url.startsWith("wallpapers/") ? url : null;
-  }
-  return url.slice(index + marker.length);
 }
 
 export async function reviewWallpaper(input: unknown) {

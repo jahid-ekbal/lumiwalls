@@ -380,7 +380,7 @@ const PublicProfilePage = async ({
                 </p>
                 {isOwner ?
                   <Link
-                    href={"/upload" as Route}
+                    href={"/upload/new" as Route}
                     className={buttonVariants({
                       variant: "outline",
                       size: "sm",

@@ -2,6 +2,7 @@
 
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { Prisma } from "@generated/prisma/client";
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
@@ -9,6 +10,7 @@ import { serverEnv } from "@/lib/env/serverEnv";
 import {
   buildKey,
   deleteManyFromS3,
+  extractS3Key,
   sanitizeFileName,
 } from "@/lib/fileStorage";
 import { slugify } from "@/lib/slugify";
@@ -18,8 +20,10 @@ import { generateThumbsAndUpload } from "@/lib/storage/imageProcessor";
 import { generatePresignedUploadUrl } from "@/lib/storage/presignedUrl";
 import {
   MAX_UPLOAD_SIZE,
+  deleteOwnWallpaperSchema,
   finalizeUploadSchema,
   initiateUploadSchema,
+  updateWallpaperMetadataSchema,
 } from "@/lib/zodSchema";
 
 const buildPublicUrl = (key: string): string => {
@@ -380,4 +384,160 @@ export async function finalizeUpload(input: unknown) {
       thumb1920Url: updated.thumb1920Url,
     },
   };
+}
+
+export async function updateWallpaperMetadata(input: unknown) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) {
+    return { success: false as const, error: "UNAUTHORIZED" };
+  }
+
+  const parsed = updateWallpaperMetadataSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: "VALIDATION_ERROR",
+      issues: parsed.error.issues,
+    };
+  }
+
+  const {
+    wallpaperId,
+    title,
+    description,
+    categoryId,
+    tagIds: rawTagIds,
+  } = parsed.data;
+  const tagIds = [...new Set(rawTagIds)];
+
+  const wallpaper = await prisma.wallpaper.findUnique({
+    where: { id: wallpaperId },
+    select: {
+      id: true,
+      uploaderId: true,
+      moderationQueue: { select: { status: true } },
+    },
+  });
+  if (!wallpaper) {
+    return { success: false as const, error: "NOT_FOUND" };
+  }
+  if (wallpaper.uploaderId !== session.user.id) {
+    return { success: false as const, error: "FORBIDDEN" };
+  }
+
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { id: true },
+  });
+  if (!category) {
+    return { success: false as const, error: "INVALID_CATEGORY" };
+  }
+
+  if (tagIds.length > 0) {
+    const existingTags = await prisma.tag.findMany({
+      where: { id: { in: tagIds } },
+      select: { id: true },
+    });
+    if (existingTags.length !== tagIds.length) {
+      return { success: false as const, error: "INVALID_TAG" };
+    }
+  }
+
+  const isRejected = wallpaper.moderationQueue?.status === "REJECTED";
+  const normalizedDescription =
+    description && description.length > 0 ? description : null;
+
+  await prisma.$transaction([
+    prisma.wallpaper.update({
+      where: { id: wallpaperId },
+      data: {
+        title,
+        description: normalizedDescription,
+        categoryId,
+        ...(isRejected ? { isApproved: false } : {}),
+        tags: {
+          deleteMany: {},
+          create: tagIds.map((tagId) => ({ tagId })),
+        },
+      },
+    }),
+    ...(isRejected ?
+      [
+        prisma.moderationQueue.upsert({
+          where: { wallpaperId },
+          create: { wallpaperId, status: "PENDING" },
+          update: {
+            status: "PENDING",
+            reviewerId: null,
+            reviewedAt: null,
+          },
+        }),
+      ]
+    : []),
+  ]);
+
+  revalidatePath("/upload");
+  revalidatePath("/browse");
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/moderation");
+  return { success: true as const };
+}
+
+export async function deleteOwnWallpaper(input: unknown) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) {
+    return { success: false as const, error: "UNAUTHORIZED" };
+  }
+
+  const parsed = deleteOwnWallpaperSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: "VALIDATION_ERROR",
+      issues: parsed.error.issues,
+    };
+  }
+
+  const wallpaper = await prisma.wallpaper.findUnique({
+    where: { id: parsed.data.wallpaperId },
+    select: {
+      id: true,
+      uploaderId: true,
+      originalUrl: true,
+      thumb400Url: true,
+      thumb800Url: true,
+      thumb1920Url: true,
+    },
+  });
+  if (!wallpaper) {
+    return { success: false as const, error: "NOT_FOUND" };
+  }
+  if (wallpaper.uploaderId !== session.user.id) {
+    return { success: false as const, error: "FORBIDDEN" };
+  }
+
+  const keys = [
+    extractS3Key(wallpaper.originalUrl),
+    extractS3Key(wallpaper.thumb400Url),
+    extractS3Key(wallpaper.thumb800Url),
+    extractS3Key(wallpaper.thumb1920Url),
+  ].filter((key): key is string => Boolean(key));
+
+  if (keys.length > 0) {
+    await deleteManyFromS3(keys);
+  }
+  await prisma.wallpaper.delete({ where: { id: wallpaper.id } });
+
+  revalidatePath("/upload");
+  revalidatePath("/browse");
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
+  return { success: true as const };
 }

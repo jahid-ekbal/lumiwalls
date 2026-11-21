@@ -71,6 +71,41 @@ export const finalizeUploadSchema = z.object({
 
 export type FinalizeUploadType = z.infer<typeof finalizeUploadSchema>;
 
+// ── My uploads (owner gallery) ───────────────────────
+export const uploadStatusFilterSchema = z.enum([
+  "all",
+  "approved",
+  "pending",
+  "rejected",
+]);
+
+export type UploadStatusFilterType = z.infer<typeof uploadStatusFilterSchema>;
+
+export const uploadSearchParamsSchema = z.object({
+  status: uploadStatusFilterSchema.optional().default("all"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type UploadSearchParamsType = z.infer<typeof uploadSearchParamsSchema>;
+
+export const updateWallpaperMetadataSchema = z.object({
+  wallpaperId: z.string().min(1),
+  title: z.string().trim().min(3).max(120),
+  description: z.string().trim().max(500).optional(),
+  categoryId: z.cuid(),
+  tagIds: z.array(z.cuid()).max(10).default([]),
+});
+
+export type UpdateWallpaperMetadataType = z.infer<
+  typeof updateWallpaperMetadataSchema
+>;
+
+export const deleteOwnWallpaperSchema = z.object({
+  wallpaperId: z.string().min(1),
+});
+
+export type DeleteOwnWallpaperType = z.infer<typeof deleteOwnWallpaperSchema>;
+
 // ── Categories and tags (admin) ─────────────────────
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
