@@ -40,6 +40,9 @@ services:
         sync: false
       - key: BETTER_AUTH_ALLOWED_ORIGINS
         sync: false
+      # Primary admin email, required at build time. Set to the seeded admin.
+      - key: SEED_ADMIN_EMAIL
+        sync: false
       - key: S3_ENDPOINT
         sync: false
       - key: S3_REGION

@@ -32,9 +32,12 @@ export const serverEnv = createEnv({
     S3_SECRET_ACCESS_KEY: z.string().min(1),
     S3_BUCKET_NAME: z.string().min(1),
     S3_PUBLIC_URL: z.url().optional(),
-    // Dev-only seed credentials. Override in non-local environments.
-    SEED_ADMIN_EMAIL: z.string().email().optional(),
-    SEED_ADMIN_PASSWORD: z.string().min(8).optional(),
+    // Primary admin account. Required: the app protects this account from
+    // demotion, bans, and deletion. The seed password is seed-only and is
+    // validated inside prisma/seed.ts, never by the running app.
+    SEED_ADMIN_EMAIL: z.email({
+      error: "SEED_ADMIN_EMAIL must be a valid email address",
+    }),
   },
   experimental__runtimeEnv: process.env,
 });
