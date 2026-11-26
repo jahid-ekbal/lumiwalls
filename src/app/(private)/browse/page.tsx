@@ -4,6 +4,8 @@ import BrowseGrid from "@/components/Browse/BrowseGrid";
 import BrowseHero from "@/components/Browse/BrowseHero";
 import BrowsePagination from "@/components/Browse/BrowsePagination";
 import WallpaperPreview from "@/components/Browse/WallpaperPreview";
+import PageHeader from "@/components/UI/PageHeader";
+import { buttonVariants } from "@/components/shadcnui/button";
 import type {
   BrowseCategoryOption,
   BrowseTagOption,
@@ -19,7 +21,10 @@ import prisma from "@/lib/database/dbClient";
 import { createMetadata } from "@/lib/metadata";
 import { browseSearchParamsSchema } from "@/lib/zodSchema";
 import { Prisma } from "@generated/prisma/client";
+import { UploadIcon } from "lucide-react";
+import type { Route } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -383,18 +388,20 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
   const previewItem = previewWallpaper ? mapRow(previewWallpaper) : null;
 
   return (
-    <div className="w-full p-6">
-      <div className="grid gap-6">
-        <header className="grid gap-1">
-          <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-            Browse
-          </h1>
-          <p className="text-muted-foreground max-w-2xl text-sm">
-            Search and discover approved wallpapers. Filter by category, tags,
-            orientation, or dominant color, and open a card for the full
-            preview.
-          </p>
-        </header>
+    <div className="grid gap-6">
+      <PageHeader
+        eyebrow="Curated gallery"
+        title="Browse"
+        description="Search and discover approved wallpapers. Filter by category, tags, orientation, or dominant color, and open any card for a full preview."
+        actions={
+          <Link
+            href={"/upload/new" as Route}
+            className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            <UploadIcon data-icon="inline-start" />
+            Submit wallpaper
+          </Link>
+        }
+      />
         <BrowseFilters
           categories={categoryOptions}
           tagOptions={tagOptions}
@@ -421,12 +428,11 @@ const BrowsePage = async ({ searchParams }: BrowsePageProps) => {
             </>
           }
         </section>
-        <WallpaperPreview
-          wallpapers={[...heroItems, ...gridItems]}
-          previewWallpaper={previewItem}
-          reportedIds={reportedIds}
-        />
-      </div>
+      <WallpaperPreview
+        wallpapers={[...heroItems, ...gridItems]}
+        previewWallpaper={previewItem}
+        reportedIds={reportedIds}
+      />
     </div>
   );
 };

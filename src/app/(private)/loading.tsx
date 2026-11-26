@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/shadcnui/skeleton";
 
 const PrivateLoading = () => {
   return (
-    <div className="mx-auto grid w-full max-w-7xl gap-6 p-6">
+    <div className="grid gap-6">
       <div className="grid gap-2">
         <Skeleton className="h-7 w-56" />
         <Skeleton className="h-4 w-72" />

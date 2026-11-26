@@ -1,31 +1,24 @@
+import EmptyState from "@/components/UI/EmptyState";
 import { buttonVariants } from "@/components/shadcnui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/shadcnui/card";
+import { ArrowLeftIcon, SearchXIcon } from "lucide-react";
 import Link from "next/link";
 
 const AdminNotFound = () => {
   return (
-    <div className="grid gap-6">
-      <Card className="mx-auto w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>Admin page not found</CardTitle>
-          <CardDescription>
-            The admin page you are looking for does not exist or was moved.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="mx-auto max-w-xl py-8">
+      <EmptyState
+        icon={SearchXIcon}
+        title="Admin page not found"
+        description="The admin page you are looking for does not exist or was moved."
+        action={
           <Link
             href="/admin"
-            className={buttonVariants({ variant: "outline" })}>
+            className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <ArrowLeftIcon data-icon="inline-start" />
             Back to dashboard
           </Link>
-        </CardContent>
-      </Card>
+        }
+      />
     </div>
   );
 };

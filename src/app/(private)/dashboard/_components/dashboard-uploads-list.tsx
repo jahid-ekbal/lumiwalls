@@ -1,4 +1,5 @@
-import { Badge } from "@/components/shadcnui/badge";
+import EmptyState from "@/components/UI/EmptyState";
+import StatusBadge, { deriveWallpaperStatus } from "@/components/UI/StatusBadge";
 import { buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
@@ -10,17 +11,15 @@ import {
 } from "@/components/shadcnui/card";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
+import { formatDate } from "@/lib/format";
 import { toImagePath } from "@/lib/imageUrl";
 import { ArrowRightIcon, ImagesIcon, UploadIcon } from "lucide-react";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
-import { format } from "date-fns";
 
 const UPLOADS_TAKE = 6;
-
-type UploadListRow = Awaited<ReturnType<typeof fetchUploads>>[number];
 
 const fetchUploads = (userId: string) =>
   prisma.wallpaper.findMany({
@@ -46,16 +45,6 @@ const fetchUploads = (userId: string) =>
     },
   });
 
-const uploadStatus = (row: UploadListRow) => {
-  if (row.isApproved) {
-    return { label: "Approved", variant: "default" as const };
-  }
-  if (row.moderationQueue?.status === "REJECTED") {
-    return { label: "Rejected", variant: "destructive" as const };
-  }
-  return { label: "Pending review", variant: "secondary" as const };
-};
-
 const DashboardUploadsList = async () => {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -75,45 +64,41 @@ const DashboardUploadsList = async () => {
             href={"/upload" as Route}
             className={buttonVariants({ variant: "ghost", size: "sm" })}>
             View all
-            <ArrowRightIcon
-              data-icon="inline-end"
-              className="size-4"
-            />
+            <ArrowRightIcon data-icon="inline-end" />
           </Link>
         </CardAction>
       </CardHeader>
       <CardContent>
         {uploads.length === 0 ?
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <ImagesIcon className="text-muted-foreground size-8" />
-            <p className="text-muted-foreground max-w-sm text-sm">
-              You have not uploaded anything yet. Share your first wallpaper.
-            </p>
-            <Link
-              href={"/upload/new" as Route}
-              className={buttonVariants({ variant: "outline", size: "sm" })}>
-              <UploadIcon
-                data-icon="inline-start"
-                className="size-4"
-              />
-              <span>Upload wallpaper</span>
-            </Link>
-          </div>
+          <EmptyState
+            compact={true}
+            icon={ImagesIcon}
+            title="No uploads yet"
+            description="You have not uploaded anything yet. Share your first wallpaper."
+            action={
+              <Link
+                href={"/upload/new" as Route}
+                className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <UploadIcon data-icon="inline-start" />
+                Upload wallpaper
+              </Link>
+            }
+          />
         : <ul className="grid gap-2">
             {uploads.map((row) => {
-              const status = uploadStatus(row);
+              const status = deriveWallpaperStatus({
+                isApproved: row.isApproved,
+                moderationStatus: row.moderationQueue?.status,
+              });
               const src = toImagePath(
                 row.thumb400Url ?? row.thumb800Url ?? row.originalUrl,
               );
-              // The next/image optimizer fetches /api images server side
-              // without a session, so private thumbs are served as a plain
-              // img that carries the browser's own credentials.
               const isOptimizable = row.isApproved && row.isPublic;
               return (
                 <li key={row.id}>
                   <Link
                     href={`/browse?preview=${row.slug}` as Route}
-                    className="hover:bg-muted/40 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl p-2 transition-colors focus-visible:ring-[3px]">
+                    className="hover:bg-muted/40 focus-visible:ring-ring/50 flex items-center gap-3 rounded-inset p-2 transition-colors outline-none focus-visible:ring-3">
                     <span className="ring-foreground/5 relative block h-10 w-16 shrink-0 overflow-hidden rounded-lg ring-1">
                       {src ?
                         isOptimizable ?
@@ -131,26 +116,25 @@ const DashboardUploadsList = async () => {
                             src={src}
                             alt={row.title}
                             loading="lazy"
-                            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                            className="pointer-events-none absolute inset-0 size-full object-cover"
                           />
-
-                      : <span className="bg-muted flex h-full w-full items-center justify-center">
+                      : <span className="bg-muted flex size-full items-center justify-center">
                           <ImagesIcon className="text-muted-foreground size-4" />
                         </span>
                       }
                     </span>
                     <span className="grid min-w-0 flex-1 gap-0.5">
-                      <span className="truncate text-sm font-medium">
+                      <span className="text-body-sm truncate font-medium">
                         {row.title}
                       </span>
                       <time
                         suppressHydrationWarning={true}
                         dateTime={row.createdAt.toISOString()}
-                        className="text-muted-foreground text-[11px]">
-                        {format(row.createdAt, "MMM d, yyyy")}
+                        className="text-caption text-muted-foreground">
+                        {formatDate(row.createdAt)}
                       </time>
                     </span>
-                    <Badge variant={status.variant}>{status.label}</Badge>
+                    <StatusBadge status={status} />
                   </Link>
                 </li>
               );

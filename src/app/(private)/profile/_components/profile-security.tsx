@@ -1,5 +1,6 @@
 "use client";
 
+import PasswordInput from "@/components/Auth/PasswordInput";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
 import {
@@ -9,8 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import { Field, FieldError, FieldLabel } from "@/components/shadcnui/field";
-import { Input } from "@/components/shadcnui/input";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/shadcnui/field";
 import { authClient } from "@/lib/auth-client";
 import { profilePasswordSchema } from "@/lib/zodSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -153,82 +158,85 @@ const ProfileSecurity = () => {
             onSubmit={handleSubmit(changePasswordHandler)}
             className="grid max-w-md gap-4"
             noValidate>
-            <Controller
-              name="currentPassword"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={field.name}>Current password</FieldLabel>
-                  <Input
-                    {...field}
-                    id={field.name}
-                    type="password"
-                    aria-invalid={fieldState.invalid}
-                    autoComplete="current-password"
-                    placeholder="Enter your current password"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+            <FieldGroup>
+              <Controller
+                name="currentPassword"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={field.name}>
+                      Current password
+                    </FieldLabel>
+                    <PasswordInput
+                      {...field}
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="current-password"
+                      placeholder="Enter your current password"
+                    />
+                    {fieldState.invalid ?
+                      <FieldError errors={[fieldState.error]} />
+                    : null}
+                  </Field>
+                )}
+              />
 
-            <Controller
-              name="newPassword"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={field.name}>New password</FieldLabel>
-                  <Input
-                    {...field}
-                    id={field.name}
-                    type="password"
-                    aria-invalid={fieldState.invalid}
-                    autoComplete="new-password"
-                    placeholder="At least 8 characters"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+              <Controller
+                name="newPassword"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={field.name}>New password</FieldLabel>
+                    <PasswordInput
+                      {...field}
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                    />
+                    {fieldState.invalid ?
+                      <FieldError errors={[fieldState.error]} />
+                    : null}
+                  </Field>
+                )}
+              />
 
-            <Controller
-              name="confirmPassword"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={field.name}>Confirm password</FieldLabel>
-                  <Input
-                    {...field}
-                    id={field.name}
-                    type="password"
-                    aria-invalid={fieldState.invalid}
-                    autoComplete="new-password"
-                    placeholder="Repeat the new password"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+              <Controller
+                name="confirmPassword"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={field.name}>
+                      Confirm password
+                    </FieldLabel>
+                    <PasswordInput
+                      {...field}
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="new-password"
+                      placeholder="Repeat the new password"
+                    />
+                    {fieldState.invalid ?
+                      <FieldError errors={[fieldState.error]} />
+                    : null}
+                  </Field>
+                )}
+              />
+            </FieldGroup>
 
             <Button
               type="submit"
               disabled={isSubmitting || !isValid}>
               {isSubmitting ?
                 <>
-                  <Loader2Icon className="animate-spin" />
+                  <Loader2Icon
+                    data-icon="inline-start"
+                    className="animate-spin"
+                  />
                   <span>Updating</span>
                 </>
               : <>
-                  <KeyRoundIcon
-                    data-icon="inline-start"
-                    className="size-4"
-                  />
+                  <KeyRoundIcon data-icon="inline-start" />
                   <span>Update password</span>
                 </>
               }

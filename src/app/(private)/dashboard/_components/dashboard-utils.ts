@@ -1,4 +1,5 @@
 import type { UploadTrendPoint } from "@/components/Dashboard/UserUploadsTrendChart";
+import { formatUtcDayLabel } from "@/lib/format";
 
 export const TREND_DAYS = 30;
 
@@ -25,11 +26,7 @@ export const buildUploadTrend = (
 
   return [...buckets.entries()].map(([date, counts]) => ({
     date,
-    label: new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    }),
+    label: formatUtcDayLabel(date),
     ...counts,
   }));
 };

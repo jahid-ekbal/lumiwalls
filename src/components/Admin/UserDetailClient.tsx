@@ -1,5 +1,8 @@
 "use client";
 
+import EmptyState from "@/components/UI/EmptyState";
+import PageHeader from "@/components/UI/PageHeader";
+import StatusBadge, { deriveWallpaperStatus } from "@/components/UI/StatusBadge";
 import {
   Avatar,
   AvatarFallback,
@@ -47,7 +50,6 @@ import {
 import { format } from "date-fns";
 import { Loader2Icon } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "react-toastify";
@@ -212,20 +214,16 @@ const UserDetailClient = ({
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-2">
-        <Link
-          href={"/admin/users" as Route}
-          className="text-muted-foreground text-sm">
-          Back to users
-        </Link>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {user.name}
-        </h1>
-        <p className="text-muted-foreground text-sm">{user.email}</p>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title={user.name}
+        description={user.email}
+        backHref={"/admin/users" as Route}
+        backLabel="Back to users"
+      />
       <Card>
         <CardHeader>
-          <CardTitle>Account</CardTitle>
+          <CardTitle>Account overview</CardTitle>
           <CardDescription>
             {`Joined ${format(new Date(user.createdAt), "MMM d, yyyy")}`}
           </CardDescription>
@@ -245,12 +243,10 @@ const UserDetailClient = ({
               <Badge variant={user.role === "admin" ? "default" : "secondary"}>
                 {user.role}
               </Badge>
-              {user.banned ?
-                <Badge variant="destructive">Banned</Badge>
-              : <Badge variant="outline">Active</Badge>}
-              {user.emailVerified ?
-                <Badge variant="outline">Verified</Badge>
-              : <Badge variant="outline">Unverified</Badge>}
+              <StatusBadge status={user.banned ? "BANNED" : "ACTIVE"} />
+              <Badge variant="outline">
+                {user.emailVerified ? "Verified" : "Unverified"}
+              </Badge>
               {isSelf ?
                 <Badge variant="outline">You</Badge>
               : null}
@@ -343,9 +339,11 @@ const UserDetailClient = ({
         </CardHeader>
         <CardContent>
           {wallpapers.length === 0 ?
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No uploads yet.
-            </p>
+            <EmptyState
+              compact={true}
+              title="No uploads yet"
+              description="This account has not uploaded any wallpapers yet."
+            />
           : <Table>
               <TableHeader>
                 <TableRow>
@@ -357,6 +355,10 @@ const UserDetailClient = ({
               <TableBody>
                 {wallpapers.map((item) => {
                   const itemBusy = busy === item.id;
+                  const status = deriveWallpaperStatus({
+                    isApproved: item.isApproved,
+                    moderationStatus: item.queueStatus,
+                  });
                   return (
                     <TableRow key={item.id}>
                       <TableCell>
@@ -366,10 +368,10 @@ const UserDetailClient = ({
                             <img
                               src={item.thumb400Url}
                               alt={item.title}
-                              className="size-10 shrink-0 rounded-xl object-cover"
+                              className="size-10 shrink-0 rounded-inset object-cover"
                               loading="lazy"
                             />
-                          : <div className="bg-muted size-10 shrink-0 rounded-xl" />
+                          : <div className="bg-muted size-10 shrink-0 rounded-inset" />
                           }
                           <div>
                             <p className="font-medium">{item.title}</p>
@@ -381,17 +383,10 @@ const UserDetailClient = ({
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          <Badge
-                            variant={item.isApproved ? "default" : "secondary"}>
-                            {item.isApproved ? "Approved" : "Unapproved"}
-                          </Badge>
-                          <Badge
-                            variant={item.isPublic ? "outline" : "destructive"}>
-                            {item.isPublic ? "Public" : "Hidden"}
-                          </Badge>
-                          {item.queueStatus ?
-                            <Badge variant="outline">{item.queueStatus}</Badge>
-                          : null}
+                          <StatusBadge status={status} />
+                          <StatusBadge
+                            status={item.isPublic ? "PUBLIC" : "PRIVATE"}
+                          />
                         </div>
                       </TableCell>
                       <TableCell>

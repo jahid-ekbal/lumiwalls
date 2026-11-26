@@ -1,25 +1,38 @@
 "use client";
 
+import PasswordInput from "@/components/Auth/PasswordInput";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/shadcnui/alert";
 import { Button } from "@/components/shadcnui/button";
 import { Checkbox } from "@/components/shadcnui/checkbox";
-import { Field, FieldError, FieldLabel } from "@/components/shadcnui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/shadcnui/field";
 import { Input } from "@/components/shadcnui/input";
 import { Label } from "@/components/shadcnui/label";
 import { authClient } from "@/lib/auth-client";
 import { signInSchema, type SignInType } from "@/lib/zodSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon, LockIcon } from "lucide-react";
+import { AlertCircleIcon, Loader2Icon, LockIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 
 const SignInForm = () => {
   const { replace } = useRouter();
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     handleSubmit,
     control,
-    formState: { isSubmitting, isValid },
+    formState: { isSubmitting },
     reset,
   } = useForm({
     resolver: zodResolver(signInSchema),
@@ -28,10 +41,11 @@ const SignInForm = () => {
       password: "",
       rememberMe: false,
     },
-    mode: "all",
+    mode: "onTouched",
   });
 
   const signInHandler = async ({ email, password, rememberMe }: SignInType) => {
+    setFormError(null);
     const { error } = await authClient.signIn.email({
       email,
       password,
@@ -39,7 +53,9 @@ const SignInForm = () => {
     });
 
     if (error) {
-      toast.error(error.message ?? "Something went wrong");
+      const message = error.message ?? "Unable to sign in. Check your credentials.";
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
@@ -56,50 +72,62 @@ const SignInForm = () => {
   return (
     <form
       onSubmit={handleSubmit(signInHandler)}
-      className="grid gap-6"
+      className="grid gap-5"
       noValidate>
-      {/* Email field */}
-      <Controller
-        name="email"
-        control={control}
-        render={({ field, fieldState }) => (
-          <Field data-invalid={fieldState.invalid}>
-            <FieldLabel htmlFor={field.name}>Email</FieldLabel>
-            <Input
-              {...field}
-              id={field.name}
-              type="email"
-              aria-invalid={fieldState.invalid}
-              placeholder="Enter your email"
-              autoComplete="email"
-            />
-            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-          </Field>
-        )}
-      />
+      <div
+        aria-live="polite"
+        aria-atomic="true">
+        {formError ?
+          <Alert variant="destructive">
+            <AlertCircleIcon aria-hidden="true" />
+            <AlertTitle>Sign in failed</AlertTitle>
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        : null}
+      </div>
 
-      {/* Password field */}
-      <Controller
-        name="password"
-        control={control}
-        render={({ field, fieldState }) => (
-          <Field data-invalid={fieldState.invalid}>
-            <FieldLabel htmlFor={field.name}>Password</FieldLabel>
-            <Input
-              {...field}
-              id={field.name}
-              type="password"
-              aria-invalid={fieldState.invalid}
-              placeholder="Enter your password"
-              autoComplete="current-password"
-            />
-            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-          </Field>
-        )}
-      />
+      <FieldGroup>
+        <Controller
+          name="email"
+          control={control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                type="email"
+                aria-invalid={fieldState.invalid}
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+              {fieldState.invalid ?
+                <FieldError errors={[fieldState.error]} />
+              : null}
+            </Field>
+          )}
+        />
 
-      {/* Remember me */}
-      <div className="flex items-center">
+        <Controller
+          name="password"
+          control={control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+              <PasswordInput
+                {...field}
+                id={field.name}
+                aria-invalid={fieldState.invalid}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
+              {fieldState.invalid ?
+                <FieldError errors={[fieldState.error]} />
+              : null}
+            </Field>
+          )}
+        />
+
         <Controller
           name="rememberMe"
           control={control}
@@ -118,19 +146,23 @@ const SignInForm = () => {
             </Field>
           )}
         />
-      </div>
+      </FieldGroup>
 
-      {/* Submit button */}
       <Button
         className="w-full"
         type="submit"
-        disabled={isSubmitting || !isValid}>
+        disabled={isSubmitting}>
         {isSubmitting ?
           <>
-            <Loader2Icon className="animate-spin" /> Signing in...
+            <Loader2Icon
+              data-icon="inline-start"
+              className="animate-spin"
+            />
+            Signing in...
           </>
         : <>
-            <LockIcon /> Sign In
+            <LockIcon data-icon="inline-start" />
+            Sign In
           </>
         }
       </Button>

@@ -1,12 +1,10 @@
 "use client";
 
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/shadcnui/alert";
+import EmptyState from "@/components/UI/EmptyState";
+import Pagination from "@/components/UI/Pagination";
+import StatusBadge from "@/components/UI/StatusBadge";
 import { Badge } from "@/components/shadcnui/badge";
-import { Button } from "@/components/shadcnui/button";
+import { Button, buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
   CardContent,
@@ -43,7 +41,7 @@ import {
   updateCollection,
 } from "@/server/actions/collections";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon, SearchIcon } from "lucide-react";
+import { ArrowRightIcon, Loader2Icon, SearchIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -221,7 +219,7 @@ const CollectionsClient = ({
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Editorial collections</CardTitle>
+          <CardTitle>Filter collections</CardTitle>
           <CardDescription>
             {`${counts.total} total, ${counts.active} active`}
           </CardDescription>
@@ -286,18 +284,25 @@ const CollectionsClient = ({
         </CardContent>
       </Card>
       {collections.length === 0 ?
-        <Alert>
-          <AlertTitle>No collections</AlertTitle>
-          <AlertDescription>No collections match this filter.</AlertDescription>
-        </Alert>
+        <EmptyState
+          compact={true}
+          icon={SearchIcon}
+          title="No collections found"
+          description="No collections match the current search or status filter."
+          action={
+            <Button
+              size="sm"
+              onClick={openCreate}>
+              New collection
+            </Button>
+          }
+        />
       : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {collections.map((item) => (
             <Card key={item.id}>
               <CardHeader>
                 <div className="flex flex-wrap items-center gap-1">
-                  <Badge variant={item.active ? "default" : "secondary"}>
-                    {item.active ? "Active" : "Hidden"}
-                  </Badge>
+                  <StatusBadge status={item.active ? "ACTIVE" : "INACTIVE"} />
                   <Badge variant="outline">{`${item.itemCount} items`}</Badge>
                 </div>
                 <CardTitle>{item.title}</CardTitle>
@@ -309,20 +314,21 @@ const CollectionsClient = ({
                   <img
                     src={item.coverUrl}
                     alt={item.title}
-                    className="aspect-video w-full rounded-2xl object-cover"
+                    className="aspect-video w-full rounded-inset object-cover"
                     loading="lazy"
                   />
-                : <div className="bg-muted aspect-video w-full rounded-2xl" />}
+                : <div className="bg-muted aspect-video w-full rounded-inset" />}
                 {item.description ?
                   <p className="text-muted-foreground line-clamp-2 text-sm">
                     {item.description}
                   </p>
                 : null}
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   <Link
                     href={`/admin/collections/${item.id}` as Route}
-                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-4xl border px-3 text-sm font-medium transition">
+                    className={buttonVariants({ variant: "outline", size: "sm" })}>
                     Manage items
+                    <ArrowRightIcon data-icon="inline-end" />
                   </Link>
                   <Button
                     size="sm"
@@ -343,25 +349,11 @@ const CollectionsClient = ({
           ))}
         </div>
       }
-      <div className="flex items-center justify-between">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={activePage <= 1}
-          onClick={() => void setPage(Math.max(1, activePage - 1))}>
-          Previous
-        </Button>
-        <span className="text-muted-foreground text-sm">
-          {`Page ${activePage} of ${totalPages}`}
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={activePage >= totalPages}
-          onClick={() => void setPage(Math.min(totalPages, activePage + 1))}>
-          Next
-        </Button>
-      </div>
+      <Pagination
+        page={activePage}
+        totalPages={totalPages}
+        onPageChange={(next) => void setPage(next)}
+      />
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {

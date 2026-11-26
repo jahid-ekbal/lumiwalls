@@ -1,6 +1,6 @@
+import { AdminDetailSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
 import { Suspense } from "react";
-import { ModerationSkeleton } from "../../_components/dashboard-skeletons";
 import UserDetailContent from "./_components/user-detail-content";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ const UserDetailPage = async ({ params }: Props) => {
   const { id } = await params;
   return (
     <div className="grid gap-6">
-      <Suspense fallback={<ModerationSkeleton />}>
+      <Suspense fallback={<AdminDetailSkeleton />}>
         <UserDetailContent userId={id} />
       </Suspense>
     </div>

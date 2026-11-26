@@ -1,16 +1,9 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/shadcnui/card";
+import StatCard from "@/components/UI/StatCard";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
 import { DownloadIcon, EyeIcon, HeartIcon, ImagesIcon } from "lucide-react";
 import type { Route } from "next";
 import { headers } from "next/headers";
-import Link from "next/link";
 
 const DashboardStats = async () => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -45,37 +38,37 @@ const DashboardStats = async () => {
 
   const stats = [
     {
-      title: "Total Wallpapers",
-      value: totalWallpapers.toLocaleString(),
-      description: "Wallpapers you uploaded",
+      label: "Total wallpapers",
+      value: totalWallpapers,
+      hint: "Wallpapers you uploaded",
       icon: ImagesIcon,
       href: "/browse" as Route,
     },
     {
-      title: "Pending Approval",
-      value: pendingWallpapers.toLocaleString(),
-      description: "Awaiting moderation before Browse",
+      label: "Pending approval",
+      value: pendingWallpapers,
+      hint: "Awaiting moderation before Browse",
       icon: ImagesIcon,
-      href: "/profile" as Route,
+      href: "/upload?status=pending" as Route,
     },
     {
-      title: "Total Views",
-      value: (viewAggregate._sum.viewCount ?? 0).toLocaleString(),
-      description: "Sum across your uploads",
+      label: "Total views",
+      value: viewAggregate._sum.viewCount ?? 0,
+      hint: "Sum across your uploads",
       icon: EyeIcon,
       href: "/browse?sort=views" as Route,
     },
     {
-      title: "Total Downloads",
-      value: (downloadAggregate._sum.downloadCount ?? 0).toLocaleString(),
-      description: "Sum across your uploads",
+      label: "Total downloads",
+      value: downloadAggregate._sum.downloadCount ?? 0,
+      hint: "Sum across your uploads",
       icon: DownloadIcon,
       href: "/browse?sort=downloads" as Route,
     },
     {
-      title: "Favorites",
-      value: favoriteCount.toLocaleString(),
-      description: "Wallpapers you saved",
+      label: "Favorites",
+      value: favoriteCount,
+      hint: "Wallpapers you saved",
       icon: HeartIcon,
       href: "/dashboard#favorites" as Route,
     },
@@ -84,26 +77,14 @@ const DashboardStats = async () => {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {stats.map((stat) => (
-        <Link
-          key={stat.title}
+        <StatCard
+          key={stat.label}
+          label={stat.label}
+          value={stat.value}
+          hint={stat.hint}
+          icon={stat.icon}
           href={stat.href}
-          aria-label={`${stat.title}: ${stat.description}`}
-          className="focus-visible:ring-ring/50 block h-full rounded-4xl focus-visible:ring-[3px]">
-          <Card className="hover:bg-muted/40 h-full transition-colors">
-            <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle>{stat.title}</CardTitle>
-                <stat.icon className="text-muted-foreground size-4" />
-              </div>
-              <CardDescription>{stat.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold tracking-tight">
-                {stat.value}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
+        />
       ))}
     </div>
   );

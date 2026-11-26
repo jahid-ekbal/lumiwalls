@@ -1,6 +1,6 @@
+import { AdminDetailSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
 import { Suspense } from "react";
-import { StatsSkeleton } from "../../_components/dashboard-skeletons";
 import CollectionDetailContent from "./_components/collection-detail-content";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ const CollectionDetailPage = async ({ params }: Props) => {
   const { id } = await params;
   return (
     <div className="grid gap-6">
-      <Suspense fallback={<StatsSkeleton />}>
+      <Suspense fallback={<AdminDetailSkeleton />}>
         <CollectionDetailContent collectionId={id} />
       </Suspense>
     </div>

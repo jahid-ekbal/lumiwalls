@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/shadcnui/badge";
-import { Button } from "@/components/shadcnui/button";
+import { Button, buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
   CardContent,
@@ -25,12 +25,13 @@ import {
   TableRow,
 } from "@/components/shadcnui/table";
 import AdminTrendChart from "@/components/Admin/AdminTrendChart";
+import { formatBytes } from "@/lib/format";
 import type { AnalyticsSearchParamsType } from "@/lib/zodSchema";
 import type { Route } from "next";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { parseAsStringLiteral } from "nuqs";
-import { DownloadIcon } from "lucide-react";
+import { ArrowRightIcon, DownloadIcon } from "lucide-react";
 
 type TrendPoint = {
   date: string;
@@ -136,21 +137,6 @@ const downloadCSV = (
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
-};
-
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) {
-    return "0 B";
-  }
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const exponent = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
-  const value = bytes / 1024 ** exponent;
-  return `${value.toFixed(exponent === 0 || value >= 10 ? 0 : 1)} ${
-    units[exponent]
-  }`;
 };
 
 const AnalyticsClient = ({
@@ -587,18 +573,21 @@ const AnalyticsClient = ({
             <div className="flex flex-wrap gap-2">
               <Link
                 href={"/admin/collections" as Route}
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-4xl border px-3 text-sm font-medium transition">
+                className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Collections
+                <ArrowRightIcon data-icon="inline-end" />
               </Link>
               <Link
                 href={"/admin/featured" as Route}
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-4xl border px-3 text-sm font-medium transition">
+                className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Featured
+                <ArrowRightIcon data-icon="inline-end" />
               </Link>
               <Link
                 href={"/admin/moderation" as Route}
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-4xl border px-3 text-sm font-medium transition">
+                className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Moderation
+                <ArrowRightIcon data-icon="inline-end" />
               </Link>
             </div>
           </CardContent>

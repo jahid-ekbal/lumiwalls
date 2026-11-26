@@ -1,10 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/shadcnui/card";
+import StatCard from "@/components/UI/StatCard";
 import prisma from "@/lib/database/dbClient";
 import {
   DownloadIcon,
@@ -36,64 +30,60 @@ const DashboardStats = async () => {
 
   const stats = [
     {
-      title: "Total users",
-      value: totalUsers.toLocaleString(),
-      description: "Registered accounts",
+      label: "Total users",
+      value: totalUsers,
+      hint: "Registered accounts",
       icon: UsersIcon,
+      href: "/admin/users" as const,
     },
     {
-      title: "Total wallpapers",
-      value: totalWallpapers.toLocaleString(),
-      description: "Uploaded wallpapers",
+      label: "Total wallpapers",
+      value: totalWallpapers,
+      hint: "Uploaded wallpapers",
       icon: ImagesIcon,
+      href: "/admin/moderation" as const,
     },
     {
-      title: "Pending moderation",
-      value: pendingCount.toLocaleString(),
-      description: "Awaiting review",
+      label: "Pending moderation",
+      value: pendingCount,
+      hint: "Awaiting review",
       icon: HourglassIcon,
+      href: "/admin/moderation" as const,
     },
     {
-      title: "Lifetime views",
-      value: (viewAggregate._sum.viewCount ?? 0).toLocaleString(),
-      description: "Sum of wallpaper views",
+      label: "Lifetime views",
+      value: viewAggregate._sum.viewCount ?? 0,
+      hint: "Sum of wallpaper views",
       icon: EyeIcon,
+      href: "/admin/analytics" as const,
     },
     {
-      title: "Lifetime downloads",
-      value: (downloadAggregate._sum.downloadCount ?? 0).toLocaleString(),
-      description: "Sum of wallpaper downloads",
+      label: "Lifetime downloads",
+      value: downloadAggregate._sum.downloadCount ?? 0,
+      hint: "Sum of wallpaper downloads",
       icon: DownloadIcon,
+      href: "/admin/analytics" as const,
     },
     {
-      title: "Categories and tags",
-      value: (categoryCount + tagCount).toLocaleString(),
-      description: `${categoryCount} categories, ${tagCount} tags`,
+      label: "Taxonomy",
+      value: categoryCount + tagCount,
+      hint: `${categoryCount} categories, ${tagCount} tags`,
       icon: TagsIcon,
+      href: "/admin/categories" as const,
     },
   ];
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {stats.map((stat) => (
-        <Card key={stat.title}>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <span className="bg-muted/60 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-                <stat.icon className="size-4" />
-              </span>
-              <div className="grid gap-0.5">
-                <CardTitle>{stat.title}</CardTitle>
-                <CardDescription>{stat.description}</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tracking-tight">
-              {stat.value}
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          key={stat.label}
+          label={stat.label}
+          value={stat.value}
+          hint={stat.hint}
+          icon={stat.icon}
+          href={stat.href}
+        />
       ))}
     </div>
   );

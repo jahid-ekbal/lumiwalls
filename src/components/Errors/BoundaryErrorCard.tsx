@@ -1,14 +1,9 @@
 "use client";
 
-import { Button, buttonVariants } from "@/components/shadcnui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/shadcnui/card";
+import ErrorState from "@/components/UI/ErrorState";
+import { buttonVariants } from "@/components/shadcnui/button";
 import { logBoundaryError } from "@/server/actions/logBoundaryError";
+import { ArrowLeftIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -56,32 +51,21 @@ const BoundaryErrorCard = ({
   };
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          {error.digest ?
-            <p className="text-muted-foreground text-xs">
-              Reference: {error.digest}
-            </p>
-          : null}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              onClick={handleRetry}>
-              Try again
-            </Button>
-            <Link
-              href={backHref}
-              className={buttonVariants({ variant: "outline" })}>
-              {backLabel}
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="mx-auto max-w-2xl py-8">
+      <ErrorState
+        title={title}
+        description={description}
+        digest={error.digest}
+        onRetry={handleRetry}
+        action={
+          <Link
+            href={backHref}
+            className={buttonVariants({ variant: "outline" })}>
+            <ArrowLeftIcon data-icon="inline-start" />
+            {backLabel}
+          </Link>
+        }
+      />
     </div>
   );
 };

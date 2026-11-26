@@ -1,12 +1,11 @@
 "use client";
 
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/shadcnui/alert";
+import EmptyState from "@/components/UI/EmptyState";
+import Pagination from "@/components/UI/Pagination";
+import StatusBadge from "@/components/UI/StatusBadge";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/shadcnui/tabs";
 import {
   Card,
   CardContent,
@@ -38,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shadcnui/table";
+import { formatDate } from "@/lib/format";
 import type { FeaturedSearchParamsType } from "@/lib/zodSchema";
 import { setWallpaperFlags } from "@/server/actions/collections";
 import {
@@ -285,32 +285,23 @@ const FeaturedClient = ({
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Featured curation</CardTitle>
+          <CardTitle>Filter curation</CardTitle>
           <CardDescription>
             {`${counts.flags} flagged, ${counts.placements} placements`}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={activeTab === "flags" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                void setTab("flags");
-                void setPage(1);
-              }}>
-              Flags
-            </Button>
-            <Button
-              variant={activeTab === "placements" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                void setTab("placements");
-                void setPage(1);
-              }}>
-              Placements
-            </Button>
-          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              void setTab(value as "flags" | "placements");
+              void setPage(1);
+            }}>
+            <TabsList>
+              <TabsTrigger value="flags">Flags</TabsTrigger>
+              <TabsTrigger value="placements">Placements</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="flex flex-col gap-3 lg:flex-row">
             <div className="relative flex-1">
               <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -435,12 +426,12 @@ const FeaturedClient = ({
           </CardHeader>
           <CardContent>
             {flags.length === 0 ?
-              <Alert>
-                <AlertTitle>No flags</AlertTitle>
-                <AlertDescription>
-                  No wallpapers match this filter.
-                </AlertDescription>
-              </Alert>
+              <EmptyState
+                compact={true}
+                icon={SearchIcon}
+                title="No flagged wallpapers"
+                description="No wallpapers match this filter."
+              />
             : <Table>
                 <TableHeader>
                   <TableRow>
@@ -461,10 +452,10 @@ const FeaturedClient = ({
                               <img
                                 src={item.thumb400Url}
                                 alt={item.title}
-                                className="size-10 shrink-0 rounded-xl object-cover"
+                                className="size-10 shrink-0 rounded-inset object-cover"
                                 loading="lazy"
                               />
-                            : <div className="bg-muted size-10 shrink-0 rounded-xl" />
+                            : <div className="bg-muted size-10 shrink-0 rounded-inset" />
                             }
                             <div>
                               <p className="font-medium">{item.title}</p>
@@ -501,7 +492,10 @@ const FeaturedClient = ({
                                 })
                               }>
                               {busy ?
-                                <Loader2Icon className="animate-spin" />
+                                <Loader2Icon
+                                  data-icon="inline-start"
+                                  className="animate-spin"
+                                />
                               : item.featured ?
                                 "Unfeature"
                               : "Feature"}
@@ -517,7 +511,10 @@ const FeaturedClient = ({
                                 })
                               }>
                               {busy ?
-                                <Loader2Icon className="animate-spin" />
+                                <Loader2Icon
+                                  data-icon="inline-start"
+                                  className="animate-spin"
+                                />
                               : item.editorsPick ?
                                 "Unpick"
                               : "Pick"}
@@ -530,27 +527,11 @@ const FeaturedClient = ({
                 </TableBody>
               </Table>
             }
-            <div className="mt-4 flex items-center justify-between">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage <= 1}
-                onClick={() => void setPage(Math.max(1, activePage - 1))}>
-                Previous
-              </Button>
-              <span className="text-muted-foreground text-sm">
-                {`Page ${activePage} of ${flagTotalPages}`}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage >= flagTotalPages}
-                onClick={() =>
-                  void setPage(Math.min(flagTotalPages, activePage + 1))
-                }>
-                Next
-              </Button>
-            </div>
+            <Pagination
+              page={activePage}
+              totalPages={flagTotalPages}
+              onPageChange={(next) => void setPage(next)}
+            />
           </CardContent>
         </Card>
       : <Card>
@@ -562,12 +543,12 @@ const FeaturedClient = ({
           </CardHeader>
           <CardContent>
             {placements.length === 0 ?
-              <Alert>
-                <AlertTitle>No placements</AlertTitle>
-                <AlertDescription>
-                  No placements match this filter.
-                </AlertDescription>
-              </Alert>
+              <EmptyState
+                compact={true}
+                icon={SearchIcon}
+                title="No scheduled placements"
+                description="No placements match this filter."
+              />
             : <Table>
                 <TableHeader>
                   <TableRow>
@@ -588,17 +569,17 @@ const FeaturedClient = ({
                               <img
                                 src={item.wallpaper.thumb400Url}
                                 alt={item.wallpaper.title}
-                                className="size-10 shrink-0 rounded-xl object-cover"
+                                className="size-10 shrink-0 rounded-inset object-cover"
                                 loading="lazy"
                               />
-                            : <div className="bg-muted size-10 shrink-0 rounded-xl" />
+                            : <div className="bg-muted size-10 shrink-0 rounded-inset" />
                             }
                             <div>
                               <p className="font-medium">
                                 {item.wallpaper.title}
                               </p>
                               <p className="text-muted-foreground text-xs">
-                                {`${item.wallpaper.slug} plus ${item.wallpaper.uploader.email}`}
+                                {`${item.wallpaper.slug} · ${item.wallpaper.uploader.email}`}
                               </p>
                             </div>
                           </div>
@@ -609,16 +590,15 @@ const FeaturedClient = ({
                               <Badge variant="secondary">
                                 {item.placement}
                               </Badge>
-                              <Badge
-                                variant={item.active ? "default" : "outline"}>
-                                {item.active ? "Active" : "Inactive"}
-                              </Badge>
+                              <StatusBadge
+                                status={item.active ? "ACTIVE" : "INACTIVE"}
+                              />
                               <Badge variant="outline">
                                 {`P${item.priority}`}
                               </Badge>
                             </div>
                             <span className="text-muted-foreground text-xs">
-                              {`${new Date(item.startAt).toLocaleDateString()} to ${item.endAt ? new Date(item.endAt).toLocaleDateString() : "open"}`}
+                              {`${formatDate(item.startAt)} to ${item.endAt ? formatDate(item.endAt) : "open"}`}
                             </span>
                           </div>
                         </TableCell>
@@ -663,27 +643,11 @@ const FeaturedClient = ({
                 </TableBody>
               </Table>
             }
-            <div className="mt-4 flex items-center justify-between">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage <= 1}
-                onClick={() => void setPage(Math.max(1, activePage - 1))}>
-                Previous
-              </Button>
-              <span className="text-muted-foreground text-sm">
-                {`Page ${activePage} of ${placementTotalPages}`}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage >= placementTotalPages}
-                onClick={() =>
-                  void setPage(Math.min(placementTotalPages, activePage + 1))
-                }>
-                Next
-              </Button>
-            </div>
+            <Pagination
+              page={activePage}
+              totalPages={placementTotalPages}
+              onPageChange={(next) => void setPage(next)}
+            />
           </CardContent>
         </Card>
       }

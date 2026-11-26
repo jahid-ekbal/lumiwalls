@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/shadcnui/alert";
+import EmptyState from "@/components/UI/EmptyState";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
 import {
@@ -154,42 +150,38 @@ const TagClient = ({ tags }: Props) => {
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Tags
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Manage tags for wallpapers. Changes reflect in the upload page.
-          </p>
-        </div>
-      </div>
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
           <div>
             <CardTitle className="flex items-center gap-2">
               <TagsIcon className="size-4" />
-              Tags
+              All tags ({tags.length})
             </CardTitle>
             <CardDescription>
               Tags users can select during upload (max 10 per wallpaper)
             </CardDescription>
           </div>
           <Button onClick={openCreateTag}>
-            <PlusIcon />
+            <PlusIcon data-icon="inline-start" />
             Add Tag
           </Button>
         </CardHeader>
         <CardContent>
           {tags.length === 0 ?
-            <Alert>
-              <AlertTitle>No tags yet</AlertTitle>
-              <AlertDescription>
-                Create tags here first, then they will be available in the
-                upload form.
-              </AlertDescription>
-            </Alert>
+            <EmptyState
+              compact={true}
+              icon={TagsIcon}
+              title="No tags yet"
+              description="Create tags here first so uploaders can label wallpapers."
+              action={
+                <Button
+                  size="sm"
+                  onClick={openCreateTag}>
+                  <PlusIcon data-icon="inline-start" />
+                  Add Tag
+                </Button>
+              }
+            />
           : <Table>
               <TableHeader>
                 <TableRow>

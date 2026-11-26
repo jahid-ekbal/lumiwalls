@@ -5,6 +5,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/shadcnui/avatar";
+import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
 import {
   DropdownMenu,
@@ -17,9 +18,12 @@ import {
 } from "@/components/shadcnui/dropdown-menu";
 import { SidebarTrigger } from "@/components/shadcnui/sidebar";
 import { authClient } from "@/lib/auth-client";
+import { initialsOf } from "@/lib/format";
 import {
+  ChevronRightIcon,
   LayoutDashboardIcon,
   LogOutIcon,
+  SettingsIcon,
   ShieldIcon,
   UserIcon,
 } from "lucide-react";
@@ -28,21 +32,60 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggleButton from "../Buttons/ThemeToggleButton";
 
-const getInitials = (name: string) => {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+type Crumb = {
+  label: string;
+  href?: Route;
+};
+
+const ROUTE_LABELS: Record<string, string> = {
+  browse: "Browse",
+  dashboard: "Dashboard",
+  profile: "Profile",
+  settings: "Settings",
+  upload: "My uploads",
+  new: "New upload",
+  edit: "Edit upload",
+  admin: "Admin",
+  categories: "Categories",
+  tags: "Tags",
+  moderation: "Moderation",
+  users: "Users",
+  reports: "Reports",
+  collections: "Collections",
+  featured: "Featured",
+  analytics: "Analytics",
+};
+
+const buildBreadcrumbs = (pathname: string): Crumb[] => {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) {
+    return [{ label: "Browse" }];
+  }
+
+  const crumbs: Crumb[] = [];
+  let acc = "";
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    acc += `/${segment}`;
+    const isLast = i === segments.length - 1;
+    const mapped = ROUTE_LABELS[segment];
+    const label = mapped ?? (segment.length > 16 ? "Details" : segment);
+    crumbs.push({
+      label,
+      href: !isLast ? (acc as Route) : undefined,
+    });
+  }
+  return crumbs;
 };
 
 const PrivateHeader = () => {
   const { data: session, isPending } = authClient.useSession();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/browse";
 
   const user = session?.user;
+  const isAdmin = user?.role === "admin";
   const isAdminRoute = pathname.startsWith("/admin");
+  const crumbs = buildBreadcrumbs(pathname);
 
   const handleSignOut = async () => {
     await authClient.signOut();
@@ -50,92 +93,155 @@ const PrivateHeader = () => {
   };
 
   return (
-    <header className="bg-background/80 sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b px-4 backdrop-blur-sm">
-      <div className="flex items-center gap-2">
-        <SidebarTrigger />
-        {isAdminRoute && (
-          <span className="bg-primary/10 text-primary flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium">
-            <ShieldIcon className="h-3 w-3" />
-            Admin
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 rounded-full p-0">
-                <Avatar className="h-8 w-8">
-                  {user?.image ?
-                    <AvatarImage
-                      src={user.image}
-                      alt={user?.name ?? "User avatar"}
+    <header className="border-border/60 bg-background/80 sticky top-0 z-30 border-b backdrop-blur-md">
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <SidebarTrigger aria-label="Toggle navigation sidebar" />
+          <nav
+            aria-label="Breadcrumb"
+            className="flex min-w-0 items-center gap-1.5 text-sm">
+            {crumbs.map((crumb, index) => {
+              const isLast = index === crumbs.length - 1;
+              return (
+                <span
+                  key={`${crumb.label}-${index}`}
+                  className="flex min-w-0 items-center gap-1.5">
+                  {index > 0 ?
+                    <ChevronRightIcon
+                      aria-hidden="true"
+                      className="text-muted-foreground size-3.5 shrink-0 opacity-60"
                     />
                   : null}
-                  <AvatarFallback>
-                    {isPending ?
-                      ".."
-                    : user?.name ?
-                      getInitials(user.name)
-                    : "U"}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            }></DropdownMenuTrigger>
+                  {crumb.href && !isLast ?
+                    <Link
+                      href={crumb.href}
+                      className="text-foreground/70 hover:text-foreground truncate opacity-60 transition-opacity hover:opacity-100">
+                      {crumb.label}
+                    </Link>
+                  : <span
+                      aria-current="page"
+                      className="text-foreground truncate font-medium">
+                      {crumb.label}
+                    </span>
+                  }
+                </span>
+              );
+            })}
+          </nav>
+          {isAdminRoute ?
+            <Badge
+              variant="secondary"
+              className="hidden sm:inline-flex">
+              <ShieldIcon data-icon="inline-start" />
+              Admin
+            </Badge>
+          : null}
+        </div>
 
-          <DropdownMenuContent
-            align="end"
-            className="w-56">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {isPending ? "Loading..." : (user?.name ?? "Guest")}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {user?.email ?? "Not signed in"}
-                  </span>
-                </div>
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <ThemeToggleButton />
 
-            <DropdownMenuSeparator />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Account menu"
+                  className="rounded-full">
+                  <Avatar className="size-8">
+                    {user?.image ?
+                      <AvatarImage
+                        src={user.image}
+                        alt={user?.name ?? "User avatar"}
+                      />
+                    : null}
+                    <AvatarFallback>
+                      {isPending ?
+                        ".."
+                      : user?.name ?
+                        initialsOf(user.name, user.email ?? "")
+                      : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              }
+            />
 
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                render={
-                  <Link href={"/profile" as Route}>
-                    <UserIcon className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                }></DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                render={
-                  <Link href={"/dashboard" as Route}>
-                    <LayoutDashboardIcon className="mr-2 h-4 w-4" />
-                    Dashboard
-                  </Link>
-                }></DropdownMenuItem>
-            </DropdownMenuGroup>
+            <DropdownMenuContent
+              align="end"
+              className="w-60">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {isPending ? "Loading..." : (user?.name ?? "Guest")}
+                    </span>
+                    <span className="text-muted-foreground truncate text-xs font-normal">
+                      {user?.email ?? "Not signed in"}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
 
-            <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
 
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={handleSignOut}>
-              <LogOutIcon className="mr-2 h-4 w-4" />
-              Sign Out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  render={
+                    <Link href={"/profile" as Route}>
+                      <UserIcon />
+                      Profile
+                    </Link>
+                  }
+                />
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  render={
+                    <Link href={"/dashboard" as Route}>
+                      <LayoutDashboardIcon />
+                      Dashboard
+                    </Link>
+                  }
+                />
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  render={
+                    <Link href={"/settings" as Route}>
+                      <SettingsIcon />
+                      Settings
+                    </Link>
+                  }
+                />
+                {isAdmin ?
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    render={
+                      <Link href={"/admin" as Route}>
+                        <ShieldIcon />
+                        Admin console
+                      </Link>
+                    }
+                  />
+                : null}
+              </DropdownMenuGroup>
 
-        <ThemeToggleButton />
+              <DropdownMenuSeparator />
+
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  variant="destructive"
+                  className="cursor-pointer"
+                  onClick={handleSignOut}>
+                  <LogOutIcon />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

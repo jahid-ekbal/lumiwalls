@@ -1,3 +1,4 @@
+import PageHeader from "@/components/UI/PageHeader";
 import { buttonVariants } from "@/components/shadcnui/button";
 import { createMetadata } from "@/lib/metadata";
 import { ArrowRightIcon } from "lucide-react";
@@ -28,22 +29,19 @@ export const metadata = createMetadata({
 const AdminDashboardPage = () => {
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Admin Dashboard
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Platform overview for the last {TREND_DAYS} days
-          </p>
-        </div>
-        <Link
-          href={"/admin/analytics" as Route}
-          className={buttonVariants({ variant: "outline" })}>
-          <span>View analytics</span>
-          <ArrowRightIcon data-icon="inline-end" />
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Administration"
+        title="Admin dashboard"
+        description={`Platform overview for the last ${TREND_DAYS} days.`}
+        actions={
+          <Link
+            href={"/admin/analytics" as Route}
+            className={buttonVariants({ variant: "outline", size: "sm" })}>
+            View analytics
+            <ArrowRightIcon data-icon="inline-end" />
+          </Link>
+        }
+      />
 
       <Suspense fallback={<StatsSkeleton />}>
         <DashboardStats />

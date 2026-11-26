@@ -46,9 +46,9 @@ See existing examples under `src/components/Auth/`.
 
 ## Agent behavior
 
-- **Ask questions.** When the request is ambiguous, when there are real implementation choices with tradeoffs, or before any non-obvious / destructive action, use the `question` tool to confirm. Always ask one question at a time, because one question's answer can affect the next questions and their answers.
+- **Ask questions.** When the request is ambiguous, when there are real implementation choices with tradeoffs, or before any non-obvious / destructive action, use the `ask_question` tool to confirm. Always ask one question at a time, because one question's answer can affect the next questions and their answers.
 - **Remember new learning.** When you discover something non-obvious about this repo: a gotcha, a convention, a fix, a command that wasn't documented, add it back to this file (or a clearly-scoped section) so future sessions benefit. Keep entries concise and high-signal; delete stale ones.
-- **Use available skills and MCPs.** Before writing code for a task that matches a listed skill (e.g. `shadcn`, `prisma-*`, `next-*`, `better-auth-*`, `vercel-react-*`, `zod`, etc.), load it with the `skill` tool. And MCPs that are directly relevant to this stack e.g. **`shadcn`** (local; component registry / audit) and **`better-auth`** (remote; auth setup). Use them when the task fits instead of guessing from training data.
+- **Use available skills and MCPs.** Before writing code for a task that matches a listed skill (e.g. `shadcn`, `prisma-*`, `next-*`, `better-auth-*`, `vercel-react-*`, `impeccable`, `design-taste-frontend`, `web-design-guidelines`, etc.) or `DESIGN.md`, read its `SKILL.md` / design spec first. Also check `shadcn` (local; component registry / audit) and `better-auth` (remote; auth setup) MCPs when the task fits instead of guessing from training data.
 
 ## Stack at a glance
 
@@ -170,7 +170,7 @@ See existing examples under `src/components/Auth/`.
 
 ## Testing reminders (browse overhaul)
 
-- Always run `playwright-cli` in `--headed` mode (e.g. `playwright-cli open --headed`). Never use headless for verifications.
-- When a button should look like a link, use `Link` with `buttonVariants` directly, not `Button` wrapping `Link`. Example: `<Link href="#" className={buttonVariants({ variant: "secondary", size: "sm" })}>Login</Link>` with `buttonVariants` from `@/components/shadcnui/button`. Every such `Link`/`Button` carries a relevant lucide icon (`data-icon="inline-start"` for actions, `data-icon="inline-end"` for forward CTAs).
-- Must remove all test data after tests complete (delete test rows; deleting the `user` cascades its `account` and `session` rows).
-- Remove `playwright-cli` test data after tests complete (delete `.playwright-cli/` snapshot/console artifacts).
+- Always run `playwright-cli --help` when checking available commands, and always run `playwright-cli` in `--headed` mode (e.g. `playwright-cli open --headed`). Never use headless for verifications.
+- When you need a button to look like a link, use `Link` with `buttonVariants` directly, not `Button` wrapping `Link`. Example: `<Link href="#" className={buttonVariants({ variant: "secondary", size: "sm" })}>Login</Link>` with `buttonVariants` imported from `@/components/shadcnui/button`. Every such `Link`/`Button` carries a relevant lucide icon (`data-icon="inline-start"` for actions, `data-icon="inline-end"` for forward CTAs).
+- 1. Must remove all test data after test completes (delete test rows; deleting the `user` cascades its `account` and `session` rows).
+- 2. Must remove `playwright-cli` test data after test completes (delete `.playwright-cli/` snapshot/console artifacts).

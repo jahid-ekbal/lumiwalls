@@ -39,7 +39,7 @@ const UploadStatusTabs = ({ active, counts }: UploadStatusTabsProps) => {
               {label}
               <span
                 className={cn(
-                  "rounded-full px-1.5 py-0.5 text-[11px] tabular-nums",
+                  "text-caption rounded-full px-1.5 py-0.5 tabular-nums",
                   isActive ?
                     "bg-primary-foreground/15"
                   : "bg-muted text-muted-foreground",

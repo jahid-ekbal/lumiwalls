@@ -1,12 +1,20 @@
 "use client";
 
+import EmptyState from "@/components/UI/EmptyState";
+import Pagination from "@/components/UI/Pagination";
+import StatusBadge from "@/components/UI/StatusBadge";
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/shadcnui/alert";
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/shadcnui/alert-dialog";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/shadcnui/tabs";
 import {
   Card,
   CardContent,
@@ -40,6 +48,7 @@ import {
   TableRow,
 } from "@/components/shadcnui/table";
 import { Textarea } from "@/components/shadcnui/textarea";
+import { formatDate } from "@/lib/format";
 import type { ModerationSearchParamsType } from "@/lib/zodSchema";
 import {
   bulkReviewWallpapers,
@@ -201,11 +210,7 @@ const formatISO = (value: string | null) => {
   if (!value) {
     return "Never";
   }
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDate(value);
 };
 
 const thumbFor = (item: QueueItem) =>
@@ -512,67 +517,58 @@ const ModerationClient = ({
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Moderation queue</CardTitle>
+          <CardTitle>Filter queue</CardTitle>
           <CardDescription>
             {`${counts.pending} pending, ${counts.approved} approved, ${counts.rejected} rejected, ${counts.pendingReports} reports pending`}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={activeTab === "queue" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                void setTab("queue");
+          <div className="flex flex-wrap items-center gap-3">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                void setTab(value as "queue" | "reports");
                 void setPage(1);
               }}>
-              Queue
-            </Button>
-            <Button
-              variant={activeTab === "reports" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                void setTab("reports");
-                void setPage(1);
-              }}>
-              {`Reports (${counts.pendingReports})`}
-            </Button>
+              <TabsList>
+                <TabsTrigger value="queue">Queue</TabsTrigger>
+                <TabsTrigger value="reports">
+                  {`Reports (${counts.pendingReports})`}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {activeTab === "queue" ?
+              <Tabs
+                value={activeStatus}
+                onValueChange={(value) => {
+                  void setStatus(value as "PENDING" | "APPROVED" | "REJECTED");
+                  void setPage(1);
+                  setSelected(new Set());
+                }}>
+                <TabsList>
+                  <TabsTrigger value="PENDING">Pending</TabsTrigger>
+                  <TabsTrigger value="APPROVED">Approved</TabsTrigger>
+                  <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            : <Tabs
+                value={activeReportStatus}
+                onValueChange={(value) => {
+                  void setReportStatus(
+                    value as "PENDING" | "RESOLVED" | "DISMISSED" | "ALL",
+                  );
+                  void setPage(1);
+                }}>
+                <TabsList>
+                  <TabsTrigger value="PENDING">Pending</TabsTrigger>
+                  <TabsTrigger value="RESOLVED">Resolved</TabsTrigger>
+                  <TabsTrigger value="DISMISSED">Dismissed</TabsTrigger>
+                  <TabsTrigger value="ALL">All</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            }
           </div>
-          {activeTab === "queue" ?
-            <div className="flex flex-wrap gap-2">
-              {(["PENDING", "APPROVED", "REJECTED"] as const).map((value) => (
-                <Button
-                  key={value}
-                  variant={activeStatus === value ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => {
-                    void setStatus(value);
-                    void setPage(1);
-                    setSelected(new Set());
-                  }}>
-                  {value}
-                </Button>
-              ))}
-            </div>
-          : <div className="flex flex-wrap gap-2">
-              {(["PENDING", "RESOLVED", "DISMISSED", "ALL"] as const).map(
-                (value) => (
-                  <Button
-                    key={value}
-                    variant={
-                      activeReportStatus === value ? "secondary" : "ghost"
-                    }
-                    size="sm"
-                    onClick={() => {
-                      void setReportStatus(value);
-                      void setPage(1);
-                    }}>
-                    {value}
-                  </Button>
-                ),
-              )}
-            </div>
-          }
           <div className="flex flex-col gap-3 lg:flex-row">
             <div className="relative flex-1">
               <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -627,27 +623,29 @@ const ModerationClient = ({
             </Select>
           </div>
           {activeTab === "queue" && selected.size > 0 ?
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-muted-foreground text-sm">
+            <div className="border-border/60 bg-muted/40 flex flex-wrap items-center justify-between gap-2 rounded-inset border px-3.5 py-2.5">
+              <span className="text-body-sm font-medium">
                 {`${selected.size} selected`}
               </span>
-              <Button
-                size="sm"
-                onClick={() => setBulkDecision("APPROVED")}>
-                Bulk approve
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setBulkDecision("REJECTED")}>
-                Bulk reject
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSelected(new Set())}>
-                Clear
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setBulkDecision("APPROVED")}>
+                  Approve selected
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setBulkDecision("REJECTED")}>
+                  Reject selected
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelected(new Set())}>
+                  Clear selection
+                </Button>
+              </div>
             </div>
           : null}
         </CardContent>
@@ -662,12 +660,12 @@ const ModerationClient = ({
           </CardHeader>
           <CardContent>
             {queue.length === 0 ?
-              <Alert>
-                <AlertTitle>No items</AlertTitle>
-                <AlertDescription>
-                  No wallpapers match this filter.
-                </AlertDescription>
-              </Alert>
+              <EmptyState
+                compact={true}
+                icon={SearchIcon}
+                title="No queue items"
+                description="No wallpapers match this moderation filter."
+              />
             : <Table>
                 <TableHeader>
                   <TableRow>
@@ -711,10 +709,10 @@ const ModerationClient = ({
                               <img
                                 src={thumb}
                                 alt={item.wallpaper.title}
-                                className="size-10 shrink-0 rounded-xl object-cover"
+                                className="size-10 shrink-0 rounded-inset object-cover"
                                 loading="lazy"
                               />
-                            : <div className="bg-muted size-10 shrink-0 rounded-xl" />
+                            : <div className="bg-muted size-10 shrink-0 rounded-inset" />
                             }
                             <div>
                               <p className="font-medium">
@@ -724,7 +722,7 @@ const ModerationClient = ({
                                 {`Queued ${formatISO(item.createdAt)}`}
                               </p>
                               {item.wallpaper.pHash ?
-                                <p className="text-muted-foreground text-xs">
+                                <p className="text-muted-foreground font-mono text-xs">
                                   {`pHash ${item.wallpaper.pHash.slice(0, 12)}`}
                                 </p>
                               : null}
@@ -738,7 +736,10 @@ const ModerationClient = ({
                               {item.wallpaper.uploader.email}
                             </p>
                             {item.wallpaper.uploader.banned ?
-                              <Badge variant="destructive">Banned</Badge>
+                              <StatusBadge
+                                status="BANNED"
+                                className="mt-1"
+                              />
                             : null}
                           </div>
                         </TableCell>
@@ -763,15 +764,13 @@ const ModerationClient = ({
                         </TableCell>
                         <TableCell>
                           <div className="grid gap-1">
-                            <Badge
-                              variant={
-                                item.status === "PENDING" ? "secondary"
-                                : item.status === "APPROVED" ?
-                                  "default"
-                                : "destructive"
-                              }>
-                              {item.status}
-                            </Badge>
+                            <StatusBadge
+                              status={
+                                item.status === "APPROVED" ? "APPROVED"
+                                : item.status === "REJECTED" ? "REJECTED"
+                                : "PENDING"
+                              }
+                            />
                             {item.reviewer ?
                               <span className="text-muted-foreground text-xs">
                                 {`${item.reviewer.email} on ${formatISO(item.reviewedAt)}`}
@@ -799,7 +798,10 @@ const ModerationClient = ({
                                 })
                               }>
                               {busy ?
-                                <Loader2Icon className="animate-spin" />
+                                <Loader2Icon
+                                  data-icon="inline-start"
+                                  className="animate-spin"
+                                />
                               : "Approve"}
                             </Button>
                             <Button
@@ -842,27 +844,11 @@ const ModerationClient = ({
                 </TableBody>
               </Table>
             }
-            <div className="mt-4 flex items-center justify-between">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage <= 1}
-                onClick={() => void setPage(Math.max(1, activePage - 1))}>
-                Previous
-              </Button>
-              <span className="text-muted-foreground text-sm">
-                {`Page ${activePage} of ${queueTotalPages}`}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage >= queueTotalPages}
-                onClick={() =>
-                  void setPage(Math.min(queueTotalPages, activePage + 1))
-                }>
-                Next
-              </Button>
-            </div>
+            <Pagination
+              page={activePage}
+              totalPages={queueTotalPages}
+              onPageChange={(next) => void setPage(next)}
+            />
           </CardContent>
         </Card>
       : <Card>
@@ -874,12 +860,12 @@ const ModerationClient = ({
           </CardHeader>
           <CardContent>
             {reports.length === 0 ?
-              <Alert>
-                <AlertTitle>No reports</AlertTitle>
-                <AlertDescription>
-                  No reports match this filter.
-                </AlertDescription>
-              </Alert>
+              <EmptyState
+                compact={true}
+                icon={SearchIcon}
+                title="No reports found"
+                description="No reports match this filter."
+              />
             : <Table>
                 <TableHeader>
                   <TableRow>
@@ -905,10 +891,10 @@ const ModerationClient = ({
                               <img
                                 src={thumb}
                                 alt={report.wallpaper.title}
-                                className="size-10 shrink-0 rounded-xl object-cover"
+                                className="size-10 shrink-0 rounded-inset object-cover"
                                 loading="lazy"
                               />
-                            : <div className="bg-muted size-10 shrink-0 rounded-xl" />
+                            : <div className="bg-muted size-10 shrink-0 rounded-inset" />
                             }
                             <div>
                               <p className="font-medium">
@@ -937,15 +923,13 @@ const ModerationClient = ({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              report.status === "PENDING" ? "secondary"
-                              : report.status === "RESOLVED" ?
-                                "default"
-                              : "outline"
-                            }>
-                            {report.status}
-                          </Badge>
+                          <StatusBadge
+                            status={
+                              report.status === "RESOLVED" ? "RESOLVED"
+                              : report.status === "DISMISSED" ? "DISMISSED"
+                              : "PENDING"
+                            }
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
@@ -969,27 +953,11 @@ const ModerationClient = ({
                 </TableBody>
               </Table>
             }
-            <div className="mt-4 flex items-center justify-between">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage <= 1}
-                onClick={() => void setPage(Math.max(1, activePage - 1))}>
-                Previous
-              </Button>
-              <span className="text-muted-foreground text-sm">
-                {`Page ${activePage} of ${reportTotalPages}`}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={activePage >= reportTotalPages}
-                onClick={() =>
-                  void setPage(Math.min(reportTotalPages, activePage + 1))
-                }>
-                Next
-              </Button>
-            </div>
+            <Pagination
+              page={activePage}
+              totalPages={reportTotalPages}
+              onPageChange={(next) => void setPage(next)}
+            />
           </CardContent>
         </Card>
       }
@@ -1215,29 +1183,32 @@ const ModerationClient = ({
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog
+      <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
             setDeleteTarget(null);
           }
         }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Permanently delete</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete wallpaper</AlertDialogTitle>
+            <AlertDialogDescription>
               {deleteTarget ?
-                `Deletes ${deleteTarget.title} plus S3 originals and thumbnails. Use for illegal content only.`
+                `This permanently deletes "${deleteTarget.title}" along with its stored original and thumbnails. This action cannot be undone.`
               : "Delete wallpaper"}
-            </DialogDescription>
-          </DialogHeader>
-          <Button
-            variant="destructive"
-            onClick={() => void submitDelete()}>
-            Delete permanently
-          </Button>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={() => void submitDelete()}>
+              Delete permanently
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog
         open={previewItem !== null}
         onOpenChange={(open) => {

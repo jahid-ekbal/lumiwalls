@@ -225,7 +225,7 @@ const BrowseFilters = ({
             Filters
           </span>
           {activeCount > 0 ?
-            <span className="bg-primary text-primary-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px]">
+            <span className="bg-primary text-primary-foreground text-caption inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1">
               {activeCount}
             </span>
           : null}
@@ -363,7 +363,7 @@ const BrowseFilters = ({
                       data-icon="inline-start"
                       className="size-4"
                     />
-                    <span className="text-[11px]">{label}</span>
+                    <span className="text-caption">{label}</span>
                   </Button>
                 ))}
               </div>

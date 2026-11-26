@@ -1,5 +1,6 @@
 "use client";
 
+import StatusBadge from "@/components/UI/StatusBadge";
 import TagSelector from "@/components/Upload/TagSelector";
 import {
   Alert,
@@ -8,9 +9,13 @@ import {
 } from "@/components/shadcnui/alert";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button, buttonVariants } from "@/components/shadcnui/button";
-import { Field, FieldError, FieldLabel } from "@/components/shadcnui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/shadcnui/field";
 import { Input } from "@/components/shadcnui/input";
-import { Progress } from "@/components/shadcnui/progress";
 import {
   Select,
   SelectContent,
@@ -19,16 +24,13 @@ import {
   SelectValue,
 } from "@/components/shadcnui/select";
 import { Textarea } from "@/components/shadcnui/textarea";
+import { formatBytes } from "@/lib/format";
 import { toImagePath } from "@/lib/imageUrl";
-import {
-  getPresignedExpiryDate,
-  getRemainingSeconds,
-} from "@/lib/uploadExpiry";
 import { ALLOWED_MIME_TYPES, MAX_UPLOAD_SIZE } from "@/lib/zodSchema";
 import { finalizeUpload, initiateUpload } from "@/server/actions/upload";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  ClockIcon,
+  AlertCircleIcon,
   ImageIcon,
   ImagesIcon,
   Loader2Icon,
@@ -60,25 +62,26 @@ const uploadFormClientSchema = z.object({
 type UploadFormClientType = z.infer<typeof uploadFormClientSchema>;
 
 type UploadStage =
-  "idle" | "initiating" | "uploading" | "processing" | "done" | "error";
+  | "idle"
+  | "initiating"
+  | "uploading"
+  | "processing"
+  | "done"
+  | "error";
 
 type UploadFormProps = {
   categories: Array<{
     id: string;
     name: string;
     slug: string;
+    icon: string | null;
+    color: string | null;
   }>;
   tags: Array<{
     id: string;
     name: string;
     slug: string;
   }>;
-};
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
 const getAspectRatioLabel = (width: number, height: number): string => {
@@ -88,6 +91,15 @@ const getAspectRatioLabel = (width: number, height: number): string => {
   const h = Math.round(height / divisor);
   if (w <= 32 && h <= 32) return `${w}:${h}`;
   return `${(width / height).toFixed(2)}:1`;
+};
+
+const STAGE_LABEL: Record<
+  Exclude<UploadStage, "idle" | "done" | "error">,
+  string
+> = {
+  initiating: "Preparing your submission...",
+  uploading: "Uploading image...",
+  processing: "Generating previews and verifying image...",
 };
 
 const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
@@ -107,14 +119,9 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     thumb800Url: string | null;
     originalUrl: string | null;
   } | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [stage, setStage] = useState<UploadStage>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
-  const [presignedExpiresAt, setPresignedExpiresAt] = useState<Date | null>(
-    null,
-  );
-  const [expiresRemaining, setExpiresRemaining] = useState<number | null>(null);
   const [dimensions, setDimensions] = useState<{
     width: number;
     height: number;
@@ -132,7 +139,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       description: "",
       categoryId: "",
     },
-    mode: "all",
+    mode: "onTouched",
   });
 
   const clearPreviewUrl = useCallback((url: string | null) => {
@@ -170,19 +177,6 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
     }
   }, [previewUrl]);
 
-  useEffect(() => {
-    if (presignedExpiresAt === null) {
-      return;
-    }
-    if (stage !== "uploading" && stage !== "processing") {
-      return;
-    }
-    const timer = setInterval(() => {
-      setExpiresRemaining(getRemainingSeconds(presignedExpiresAt));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [presignedExpiresAt, stage]);
-
   const validateAndSetFile = useCallback(
     (file: File): boolean => {
       const isAllowedType = (ALLOWED_MIME_TYPES as readonly string[]).includes(
@@ -190,21 +184,22 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       );
 
       if (!isAllowedType) {
-        const msg = `Invalid file type: ${file.type || "unknown"}. Allowed: JPEG, PNG, WebP, AVIF`;
+        const msg =
+          "Unsupported image format. Please choose a JPEG, PNG, WebP, or AVIF file.";
         setErrorMsg(msg);
         toast.error(msg);
         return false;
       }
 
       if (file.size > MAX_UPLOAD_SIZE) {
-        const msg = `File too large: ${formatFileSize(file.size)}. Max is ${formatFileSize(MAX_UPLOAD_SIZE)}`;
+        const msg = `This image is ${formatBytes(file.size)}. Maximum supported size is ${formatBytes(MAX_UPLOAD_SIZE)}.`;
         setErrorMsg(msg);
         toast.error(msg);
         return false;
       }
 
       if (file.size < 1) {
-        const msg = "File is empty";
+        const msg = "The selected file appears to be empty.";
         setErrorMsg(msg);
         toast.error(msg);
         return false;
@@ -286,7 +281,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
 
   const uploadHandler = async (data: UploadFormClientType) => {
     if (!selectedFile) {
-      const msg = "Please select an image to upload";
+      const msg = "Please select an image to upload.";
       setErrorMsg(msg);
       toast.error(msg);
       return;
@@ -298,7 +293,6 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
 
     setErrorMsg("");
     setStage("initiating");
-    setUploadProgress(10);
 
     try {
       const initiatePayload = {
@@ -315,32 +309,27 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       if (!initiateResult.success) {
         const msg =
           initiateResult.error === "VALIDATION_ERROR" ?
-            "Validation failed, please check your inputs"
+            "Please review the highlighted fields and try again."
           : initiateResult.error === "RATE_LIMITED" ?
-            "Rate limited: maximum 5 finalized uploads per hour"
+            "You have reached the hourly limit of 5 uploads. Please try again later."
           : initiateResult.error === "INVALID_CATEGORY" ?
-            "Selected category is invalid"
+            "The selected category is no longer available."
           : initiateResult.error === "INVALID_TAG" ?
-            "One or more selected tags are invalid"
+            "One or more selected tags are unavailable."
           : initiateResult.error === "UNAUTHORIZED" ?
-            "You must be signed in to upload"
+            "Please sign in to upload wallpapers."
           : initiateResult.error === "STORAGE_ERROR" ?
-            "Storage unavailable, please try again"
-          : initiateResult.error || "Failed to initiate upload";
+            "Upload service is temporarily unavailable. Please try again shortly."
+          : initiateResult.error || "Unable to start upload. Please try again.";
         setErrorMsg(msg);
         toast.error(msg);
         setStage("error");
-        setUploadProgress(0);
         return;
       }
 
       let { url, key, wallpaperId } = initiateResult.data;
-      const expiresAt = getPresignedExpiryDate(initiateResult.data.expiresIn);
-      setPresignedExpiresAt(expiresAt);
-      setExpiresRemaining(initiateResult.data.expiresIn);
 
       setStage("uploading");
-      setUploadProgress(30);
 
       let uploadResponse: Response | null = null;
       let proxyOk = false;
@@ -354,11 +343,6 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
           body: proxyForm,
         });
         proxyOk = proxyResponse.ok;
-        if (!proxyOk) {
-          const msg =
-            "Server upload failed, trying direct browser upload as fallback.";
-          toast.info(msg);
-        }
       } catch {
         proxyOk = false;
       }
@@ -374,13 +358,10 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
           });
         } catch {
           const msg =
-            "Could not reach object storage and server fallback failed. Please try again or contact an admin.";
+            "Unable to upload your image right now. Please check your connection and try again.";
           setErrorMsg(msg);
           toast.error(msg);
           setStage("error");
-          setUploadProgress(0);
-          setPresignedExpiresAt(null);
-          setExpiresRemaining(null);
           return;
         }
       }
@@ -392,11 +373,6 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
             url = retryResult.data.url;
             key = retryResult.data.key;
             wallpaperId = retryResult.data.wallpaperId;
-            const retryExpiresAt = getPresignedExpiryDate(
-              retryResult.data.expiresIn,
-            );
-            setPresignedExpiresAt(retryExpiresAt);
-            setExpiresRemaining(retryResult.data.expiresIn);
             try {
               uploadResponse = await fetch(url, {
                 method: "PUT",
@@ -407,44 +383,38 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
               });
             } catch {
               const msg =
-                "Upload URL expired, retried once but upload still failed. Please submit again.";
+                "Your upload session timed out. Please try uploading again.";
               setErrorMsg(msg);
               toast.error(msg);
               setStage("error");
-              setUploadProgress(0);
               return;
             }
             if (!uploadResponse.ok) {
-              const msg = `Upload failed with status ${uploadResponse.status} after retry. The presigned URL may have expired, please submit again.`;
+              const msg =
+                "Your upload session expired. Please submit your wallpaper again.";
               setErrorMsg(msg);
               toast.error(msg);
               setStage("error");
-              setUploadProgress(0);
               return;
             }
           } else {
             const msg =
-              "Upload URL expired (403). Please submit again to get a fresh URL.";
+              "Your upload session expired. Please submit again to refresh.";
             setErrorMsg(msg);
             toast.error(msg);
             setStage("error");
-            setUploadProgress(0);
             return;
           }
         } else {
           const msg =
-            uploadResponse.status === 403 ?
-              "Upload blocked (403). Check B2 CORS for http://localhost:3000 allows PUT plus Content-Type and checksum headers, then submit again."
-            : `Upload failed with status ${uploadResponse.status}`;
+            "The upload could not be accepted. Please try again in a moment.";
           setErrorMsg(msg);
           toast.error(msg);
           setStage("error");
-          setUploadProgress(0);
           return;
         }
       }
 
-      setUploadProgress(60);
       setStage("processing");
 
       const finalizeResult = await finalizeUpload({
@@ -455,23 +425,23 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       if (!finalizeResult.success) {
         const msg =
           finalizeResult.error === "OBJECT_NOT_FOUND" ?
-            "Uploaded file not found, please try again"
+            "Your uploaded file could not be found. Please try again."
           : finalizeResult.error === "PROCESSING_FAILED" ?
-            "Image processing failed, orphan files were cleaned up. Please try again."
-          : finalizeResult.error === "NOT_FOUND" ? "Wallpaper record not found"
+            "We could not process that image file. Please try another image or re-export it."
+          : finalizeResult.error === "NOT_FOUND" ?
+            "Your upload session could not be found. Please try again."
           : finalizeResult.error === "FORBIDDEN" ?
-            "You do not have permission to finalize this upload"
-          : finalizeResult.error === "KEY_MISMATCH" ? "Upload key mismatch"
+            "You do not have permission to complete this upload."
+          : finalizeResult.error === "KEY_MISMATCH" ?
+            "Your upload session could not be verified. Please try again."
           : finalizeResult.error === "FILE_TOO_LARGE" ?
-            "File too large after upload verification, maximum 50MB"
+            `This image exceeds the ${formatBytes(MAX_UPLOAD_SIZE)} limit.`
           : finalizeResult.error === "STORAGE_ERROR" ?
-            "Storage unavailable during finalize, please try again"
-          : finalizeResult.error || "Failed to finalize upload";
+            "Could not finish saving your wallpaper. Please try again."
+          : finalizeResult.error || "Unable to complete your upload.";
         setErrorMsg(msg);
         toast.error(msg);
         setStage("error");
-        setUploadProgress(0);
-        setPresignedExpiresAt(null);
         return;
       }
 
@@ -491,17 +461,12 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       setSelectedTagIds([]);
       setTagSelectorKey((value) => value + 1);
       handleClearFile();
-      setUploadProgress(0);
-      setPresignedExpiresAt(null);
       setStage("idle");
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Unexpected error during upload";
+    } catch {
+      const msg = "Something unexpected happened while uploading. Please try again.";
       setErrorMsg(msg);
       toast.error(msg);
       setStage("error");
-      setUploadProgress(0);
-      setPresignedExpiresAt(null);
     }
   };
 
@@ -513,23 +478,23 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
 
   const aspectLabel =
     dimensions ?
-      `${dimensions.width} x ${dimensions.height} • ${getAspectRatioLabel(dimensions.width, dimensions.height)}`
+      `${dimensions.width} x ${dimensions.height} · ${getAspectRatioLabel(dimensions.width, dimensions.height)}`
     : selectedFile ? selectedFile.type.split("/")[1]?.toUpperCase() || "IMAGE"
     : null;
 
   if (uploaded) {
-    const previewUrl = toImagePath(
+    const previewImage = toImagePath(
       uploaded.thumb800Url ?? uploaded.thumb400Url ?? uploaded.originalUrl,
     );
 
     return (
       <div className="grid items-start gap-6 lg:grid-cols-12">
-        <div className="bg-muted/40 relative aspect-video overflow-hidden rounded-3xl border lg:col-span-5">
-          {previewUrl ?
+        <div className="bg-muted/40 relative aspect-video overflow-hidden rounded-surface border lg:col-span-5">
+          {previewImage ?
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={previewUrl}
-              alt={uploaded.title}
+              src={previewImage}
+              alt={`${uploaded.title} upload preview`}
               className="size-full object-cover"
             />
           : <div className="text-muted-foreground flex size-full items-center justify-center">
@@ -540,30 +505,27 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
 
         <div className="grid gap-5 lg:col-span-7">
           <div className="grid gap-3">
-            <Badge
-              variant="secondary"
-              className="w-fit">
-              <ClockIcon className="size-3" />
-              Pending review
-            </Badge>
-            <h2 className="font-heading text-2xl font-semibold tracking-tight">
-              Upload complete
+            <StatusBadge
+              status="PENDING"
+              className="w-fit"
+            />
+            <h2 className="font-heading text-h2 font-semibold tracking-tight">
+              Submission received
             </h2>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-body-sm text-muted-foreground text-pretty">
               <span className="text-foreground font-medium">
                 {uploaded.title}
               </span>{" "}
-              is now waiting for moderator approval. You can follow its status
-              from My uploads.
+              is queued for moderation. Once approved, it will appear in Browse.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Link
-              href={"/upload" as Route}
+              href={"/upload?status=pending" as Route}
               className={buttonVariants()}>
               <ImagesIcon data-icon="inline-start" />
-              View my uploads
+              View wallpaper
             </Link>
             <Button
               type="button"
@@ -585,8 +547,8 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       className="grid gap-6"
       noValidate>
       <div className="grid items-start gap-6 lg:grid-cols-12">
-        <div className="grid gap-6 lg:col-span-7">
-          {!selectedFile && (
+        <div className="grid gap-4 lg:col-span-7">
+          {!selectedFile ?
             <div
               ref={dropzoneRef}
               onDragOver={handleDragOver}
@@ -609,22 +571,25 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
               aria-label="Upload image dropzone"
               className={
                 isDragOver ?
-                  "border-primary bg-primary/5 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors lg:min-h-96"
-                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors lg:min-h-96"
+                  "border-primary bg-primary/5 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-3 rounded-surface border-2 border-dashed p-8 text-center transition-colors lg:min-h-96"
+                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30 focus-visible:ring-ring/50 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-3 rounded-surface border-2 border-dashed p-8 text-center transition-colors outline-none focus-visible:ring-3 lg:min-h-96"
               }>
-              <div className="bg-muted rounded-full p-3">
-                <UploadIcon className="text-muted-foreground size-6" />
+              <div className="bg-muted rounded-full p-3.5">
+                <UploadIcon
+                  aria-hidden="true"
+                  className="text-muted-foreground size-6"
+                />
               </div>
               <div className="grid gap-1">
-                <p className="text-sm font-medium">
-                  Drag and drop image here, or click to browse
+                <p className="text-body-sm font-medium">
+                  Drag and drop an image here, or click to browse
                 </p>
-                <p className="text-muted-foreground text-xs">
-                  JPEG, PNG, WebP, AVIF up to 50MB
+                <p className="text-caption text-muted-foreground">
+                  JPEG, PNG, WebP, or AVIF up to {formatBytes(MAX_UPLOAD_SIZE)}
                 </p>
               </div>
             </div>
-          )}
+          : null}
 
           <input
             ref={fileInputRef}
@@ -635,16 +600,15 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
             onChange={handleFileInputChange}
           />
 
-          {/* Preview */}
-          {previewUrl && selectedFile && (
+          {previewUrl && selectedFile ?
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={
                 isDragOver ?
-                  "bg-card ring-primary grid gap-3 overflow-hidden rounded-2xl border p-3 ring-2"
-                : "bg-card grid gap-3 overflow-hidden rounded-2xl border p-3"
+                  "bg-card ring-primary grid gap-3 overflow-hidden rounded-surface border p-3.5 ring-2"
+                : "bg-card grid gap-3 overflow-hidden rounded-surface border p-3.5"
               }>
               <button
                 ref={replaceButtonRef}
@@ -655,35 +619,35 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                   if (fileInputRef.current) fileInputRef.current.value = "";
                   fileInputRef.current?.click();
                 }}
-                aria-label="Replace image"
-                className="relative block w-full cursor-pointer overflow-hidden rounded-xl">
+                aria-label="Replace selected image"
+                className="relative block w-full cursor-pointer overflow-hidden rounded-inset">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={previewUrl}
-                  alt="Preview"
+                  alt={`Preview of ${selectedFile.name}`}
                   className="h-80 w-full object-cover lg:h-96"
                 />
-                {aspectLabel && (
-                  <Badge className="absolute top-2 right-2 backdrop-blur">
+                {aspectLabel ?
+                  <Badge className="absolute top-2.5 right-2.5 backdrop-blur">
                     {aspectLabel}
                   </Badge>
-                )}
+                : null}
                 <Badge
                   variant="secondary"
-                  className="absolute top-2 left-2 backdrop-blur">
-                  <ImageIcon className="size-3" />
+                  className="absolute top-2.5 left-2.5 backdrop-blur">
+                  <ImageIcon data-icon="inline-start" />
                   Preview
                 </Badge>
               </button>
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
+                  <p className="text-body-sm truncate font-medium">
                     {selectedFile.name}
                   </p>
-                  <p className="text-muted-foreground text-xs">
-                    {formatFileSize(selectedFile.size)} • {selectedFile.type}
+                  <p className="text-caption text-muted-foreground">
+                    {formatBytes(selectedFile.size)} &middot; {selectedFile.type}
                     {dimensions ?
-                      ` • ${dimensions.width} x ${dimensions.height}`
+                      ` · ${dimensions.width} x ${dimensions.height}`
                     : ""}
                   </p>
                 </div>
@@ -698,7 +662,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                       if (fileInputRef.current) fileInputRef.current.value = "";
                       fileInputRef.current?.click();
                     }}>
-                    <UploadIcon />
+                    <UploadIcon data-icon="inline-start" />
                     Replace
                   </Button>
                   <Button
@@ -707,107 +671,107 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                     size="sm"
                     disabled={isBusy}
                     onClick={handleClearFile}>
-                    <XIcon />
+                    <XIcon data-icon="inline-start" />
                     Clear
                   </Button>
                 </div>
               </div>
-              <p className="text-muted-foreground text-xs">
-                Click image or Replace to swap, or drop a new file here.
+              <p className="text-caption text-muted-foreground">
+                Drop a new image anywhere on this frame or click Replace to swap.
               </p>
             </div>
-          )}
+          : null}
         </div>
-        <div className="grid content-start gap-6 lg:col-span-5">
-          {/* Title */}
-          <Controller
-            name="title"
-            control={control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor={field.name}>Title</FieldLabel>
-                <Input
-                  {...field}
-                  id={field.name}
-                  aria-invalid={fieldState.invalid}
-                  placeholder="Enter wallpaper title"
-                  autoComplete="off"
-                />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
 
-          {/* Description */}
-          <Controller
-            name="description"
-            control={control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor={field.name}>Description</FieldLabel>
-                <Textarea
-                  {...field}
-                  id={field.name}
-                  aria-invalid={fieldState.invalid}
-                  placeholder="Describe your wallpaper (optional)"
-                  rows={3}
-                />
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
-
-          {/* Category */}
-          <Controller
-            name="categoryId"
-            control={control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor={field.name}>Category</FieldLabel>
-                <Select
-                  value={field.value}
-                  items={categoryItems}
-                  onValueChange={field.onChange}>
-                  <SelectTrigger
+        <div className="grid content-start gap-5 lg:col-span-5">
+          <FieldGroup>
+            <Controller
+              name="title"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Title</FieldLabel>
+                  <Input
+                    {...field}
                     id={field.name}
                     aria-invalid={fieldState.invalid}
-                    disabled={!hasCategories}
-                    className="w-full">
-                    <SelectValue
-                      placeholder={
-                        hasCategories ? "Select a category" : (
-                          "No categories available"
-                        )
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hasCategories ?
-                      categories.map((category) => (
-                        <SelectItem
-                          key={category.id}
-                          value={category.id}>
-                          {category.name}
+                    placeholder="Enter wallpaper title"
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid ?
+                    <FieldError errors={[fieldState.error]} />
+                  : null}
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="description"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Description</FieldLabel>
+                  <Textarea
+                    {...field}
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Describe your wallpaper (optional)"
+                    rows={3}
+                  />
+                  {fieldState.invalid ?
+                    <FieldError errors={[fieldState.error]} />
+                  : null}
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="categoryId"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Category</FieldLabel>
+                  <Select
+                    value={field.value}
+                    items={categoryItems}
+                    onValueChange={field.onChange}>
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                      disabled={!hasCategories}
+                      className="w-full">
+                      <SelectValue
+                        placeholder={
+                          hasCategories ? "Select a category" : (
+                            "No categories available"
+                          )
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hasCategories ?
+                        categories.map((category) => (
+                          <SelectItem
+                            key={category.id}
+                            value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))
+                      : <SelectItem
+                          value="__empty"
+                          disabled>
+                          No categories available
                         </SelectItem>
-                      ))
-                    : <SelectItem
-                        value="__empty"
-                        disabled>
-                        No categories available
-                      </SelectItem>
-                    }
-                  </SelectContent>
-                </Select>
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
+                      }
+                    </SelectContent>
+                  </Select>
+                  {fieldState.invalid ?
+                    <FieldError errors={[fieldState.error]} />
+                  : null}
+                </Field>
+              )}
+            />
+          </FieldGroup>
 
           <TagSelector
             key={tagSelectorKey}
@@ -817,57 +781,55 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
           />
         </div>
       </div>
-      {/* Progress */}
-      {(stage === "uploading" || stage === "processing") && (
-        <div className="grid gap-2">
-          <Progress value={uploadProgress} />
-          <p className="text-muted-foreground text-xs">
-            {stage === "uploading" ? "Uploading..." : "Processing..."}{" "}
-            {uploadProgress}%
-            {expiresRemaining !== null && stage === "uploading" ?
-              ` • URL expires in ${expiresRemaining}s, retry if expired`
-            : ""}
+
+      {/* Honest indeterminate progress during upload and server processing */}
+      {stage === "initiating" ||
+      stage === "uploading" ||
+      stage === "processing" ?
+        <div
+          aria-live="polite"
+          className="grid gap-2">
+          <div
+            role="progressbar"
+            aria-label={STAGE_LABEL[stage]}
+            aria-valuetext={STAGE_LABEL[stage]}
+            className="bg-muted relative h-2.5 w-full overflow-hidden rounded-full">
+            <div className="bg-primary progress-indeterminate h-full w-1/2 rounded-full" />
+          </div>
+          <p className="text-caption text-muted-foreground">
+            {STAGE_LABEL[stage]}
           </p>
         </div>
-      )}
-      {stage === "initiating" && (
-        <div className="grid gap-2">
-          <Progress value={uploadProgress} />
-          <p className="text-muted-foreground text-xs">
-            Initiating upload... {uploadProgress}%
-          </p>
-        </div>
-      )}
+      : null}
 
-      {/* Error Alert */}
-      {errorMsg && (
-        <Alert variant="destructive">
-          <AlertTitle>Upload error</AlertTitle>
-          <AlertDescription>{errorMsg}</AlertDescription>
-        </Alert>
-      )}
+      <div
+        aria-live="polite"
+        aria-atomic="true">
+        {errorMsg ?
+          <Alert variant="destructive">
+            <AlertCircleIcon aria-hidden="true" />
+            <AlertTitle>Upload failed</AlertTitle>
+            <AlertDescription>{errorMsg}</AlertDescription>
+          </Alert>
+        : null}
+      </div>
 
-      {/* Submit */}
       <Button
         type="submit"
         className="w-full"
         disabled={isSubmitting || !selectedFile || isBusy}>
-        {(
-          isSubmitting ||
-          (stage !== "idle" && stage !== "done" && stage !== "error")
-        ) ?
+        {isBusy ?
           <>
-            <Loader2Icon className="animate-spin" />
-            {stage === "initiating" ?
-              "Initiating..."
-            : stage === "uploading" ?
-              "Uploading..."
-            : stage === "processing" ?
-              "Processing..."
+            <Loader2Icon
+              data-icon="inline-start"
+              className="animate-spin"
+            />
+            {stage === "initiating" || stage === "uploading" || stage === "processing" ?
+              STAGE_LABEL[stage]
             : "Uploading..."}
           </>
         : <>
-            <UploadIcon />
+            <UploadIcon data-icon="inline-start" />
             Upload Wallpaper
           </>
         }

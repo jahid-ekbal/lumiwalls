@@ -1,17 +1,15 @@
 "use client";
 
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/shadcnui/alert";
+import EmptyState from "@/components/UI/EmptyState";
+import Pagination from "@/components/UI/Pagination";
+import StatusBadge from "@/components/UI/StatusBadge";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@/components/shadcnui/avatar";
 import { Badge } from "@/components/shadcnui/badge";
-import { Button } from "@/components/shadcnui/button";
+import { Button, buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
   CardContent,
@@ -47,7 +45,12 @@ import type { UsersSearchParamsType } from "@/lib/zodSchema";
 import { setBan } from "@/server/actions/moderation";
 import { deleteUser, setRole } from "@/server/actions/users";
 import { format } from "date-fns";
-import { Loader2Icon, LockIcon, SearchIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  Loader2Icon,
+  LockIcon,
+  SearchIcon,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -276,7 +279,7 @@ const UsersClient = ({
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Users</CardTitle>
+          <CardTitle>Filter accounts</CardTitle>
           <CardDescription>
             {`${counts.total} total, ${counts.totalAdmins} admins, ${counts.totalBanned} banned`}
           </CardDescription>
@@ -362,10 +365,12 @@ const UsersClient = ({
         </CardHeader>
         <CardContent>
           {users.length === 0 ?
-            <Alert>
-              <AlertTitle>No users</AlertTitle>
-              <AlertDescription>No users match this filter.</AlertDescription>
-            </Alert>
+            <EmptyState
+              compact={true}
+              icon={SearchIcon}
+              title="No accounts found"
+              description="No users match this search or filter."
+            />
           : <Table>
               <TableHeader>
                 <TableRow>
@@ -407,7 +412,7 @@ const UsersClient = ({
                             </p>
                             <div className="mt-1 flex flex-wrap gap-1">
                               {row.banned ?
-                                <Badge variant="destructive">Banned</Badge>
+                                <StatusBadge status="BANNED" />
                               : null}
                               {isSelf ?
                                 <Badge variant="outline">You</Badge>
@@ -427,14 +432,20 @@ const UsersClient = ({
                           {row.role}
                         </Badge>
                       </TableCell>
-                      <TableCell>{row.wallpaperCount}</TableCell>
+                      <TableCell className="tabular-nums">
+                        {row.wallpaperCount}
+                      </TableCell>
                       <TableCell>{formatDate(row.createdAt)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1">
                           <Link
                             href={`/admin/users/${row.id}` as Route}
-                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-4xl border px-3 text-sm font-medium transition">
+                            className={buttonVariants({
+                              variant: "outline",
+                              size: "sm",
+                            })}>
                             Detail
+                            <ArrowRightIcon data-icon="inline-end" />
                           </Link>
                           {canBan ?
                             <Button
@@ -480,27 +491,11 @@ const UsersClient = ({
               </TableBody>
             </Table>
           }
-          <div className="mt-4 flex items-center justify-between">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={activePage <= 1}
-              onClick={() => void setPage(Math.max(1, activePage - 1))}>
-              Previous
-            </Button>
-            <span className="text-muted-foreground text-sm">
-              {`Page ${activePage} of ${totalPages}`}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={activePage >= totalPages}
-              onClick={() =>
-                void setPage(Math.min(totalPages, activePage + 1))
-              }>
-              Next
-            </Button>
-          </div>
+          <Pagination
+            page={activePage}
+            totalPages={totalPages}
+            onPageChange={(next) => void setPage(next)}
+          />
         </CardContent>
       </Card>
       <Dialog

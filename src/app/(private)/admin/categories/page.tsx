@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader } from "@/components/shadcnui/card";
-import { Skeleton } from "@/components/shadcnui/skeleton";
+import PageHeader from "@/components/UI/PageHeader";
+import { TableCardSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
 import { Suspense } from "react";
 import CategoriesContent from "./_components/categories-content";
@@ -9,31 +9,15 @@ export const metadata = createMetadata({
   description: "Manage wallpaper categories on Lumiwalls",
 });
 
-const CategoriesFallback = () => {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-5 w-44" />
-        <Skeleton className="h-4 w-64" />
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-2">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton
-              key={index}
-              className="h-12 w-full"
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
 const CategoriesPage = () => {
   return (
     <div className="grid gap-6">
-      <Suspense fallback={<CategoriesFallback />}>
+      <PageHeader
+        eyebrow="Taxonomy"
+        title="Categories"
+        description="Organize wallpapers into browsable categories across Browse and Upload."
+      />
+      <Suspense fallback={<TableCardSkeleton rows={6} />}>
         <CategoriesContent />
       </Suspense>
     </div>

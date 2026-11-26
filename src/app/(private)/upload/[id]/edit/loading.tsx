@@ -3,8 +3,7 @@ import { Skeleton } from "@/components/shadcnui/skeleton";
 
 const EditUploadLoading = () => {
   return (
-    <div className="w-full p-6">
-      <div className="grid gap-6">
+    <div className="grid gap-6">
         <div className="grid gap-3">
           <Skeleton className="h-8 w-36" />
           <div className="grid gap-1">
@@ -45,7 +44,6 @@ const EditUploadLoading = () => {
           </Card>
         </div>
       </div>
-    </div>
   );
 };
 

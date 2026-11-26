@@ -7,6 +7,7 @@ import {
 } from "@/components/shadcnui/card";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
+import { formatBytes } from "@/lib/format";
 import {
   FolderHeartIcon,
   HardDriveIcon,
@@ -14,16 +15,6 @@ import {
   TagIcon,
 } from "lucide-react";
 import { headers } from "next/headers";
-
-const formatBytes = (bytes: number) => {
-  if (bytes < 1024 * 1024) {
-    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  }
-  if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-};
 
 const DashboardStorage = async () => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -123,13 +114,13 @@ const DashboardStorage = async () => {
                 <row.icon className="size-4" />
               </span>
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                <span className="text-caption text-muted-foreground tracking-wide uppercase">
                   {row.label}
                 </span>
-                <span className="truncate text-sm font-medium">
+                <span className="text-body-sm truncate font-medium">
                   {row.value ?? "Nothing yet"}
                 </span>
-                <span className="text-muted-foreground truncate text-[11px]">
+                <span className="text-caption text-muted-foreground truncate">
                   {row.hint}
                 </span>
               </span>

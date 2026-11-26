@@ -1,31 +1,38 @@
+import AmbientBackground from "@/components/Ambient/AmbientBackground";
+import Brand from "@/components/Brand/Brand";
+import EmptyState from "@/components/UI/EmptyState";
 import { buttonVariants } from "@/components/shadcnui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/shadcnui/card";
+import { ArrowLeftIcon, CompassIcon, SearchXIcon } from "lucide-react";
 import Link from "next/link";
 
 const RootNotFound = () => {
   return (
-    <div className="mx-auto grid min-h-svh max-w-2xl place-items-center p-6">
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Page not found</CardTitle>
-          <CardDescription>
-            The page you are looking for does not exist or was moved.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/"
-            className={buttonVariants({ variant: "outline" })}>
-            Return home
-          </Link>
-        </CardContent>
-      </Card>
+    <div className="bg-background relative isolate grid min-h-dvh place-items-center px-4 py-12 sm:px-6">
+      <AmbientBackground />
+      <div className="grid w-full max-w-lg gap-6">
+        <Brand />
+        <EmptyState
+          icon={SearchXIcon}
+          title="Page not found"
+          description="The page you requested does not exist or may have moved."
+          action={
+            <>
+              <Link
+                href="/"
+                className={buttonVariants({ variant: "default", size: "sm" })}>
+                <ArrowLeftIcon data-icon="inline-start" />
+                Return home
+              </Link>
+              <Link
+                href="/browse"
+                className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <CompassIcon data-icon="inline-start" />
+                Browse gallery
+              </Link>
+            </>
+          }
+        />
+      </div>
     </div>
   );
 };

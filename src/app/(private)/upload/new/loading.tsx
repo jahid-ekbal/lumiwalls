@@ -3,8 +3,7 @@ import { Skeleton } from "@/components/shadcnui/skeleton";
 
 const NewUploadLoading = () => {
   return (
-    <div className="w-full p-6">
-      <div className="grid gap-6">
+    <div className="grid gap-6">
         <div className="grid gap-3">
           <Skeleton className="h-8 w-36" />
           <div className="grid gap-1">
@@ -33,7 +32,6 @@ const NewUploadLoading = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
   );
 };
 

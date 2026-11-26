@@ -1,5 +1,5 @@
-import { Badge } from "@/components/shadcnui/badge";
-import { buttonVariants } from "@/components/shadcnui/button";
+import PageHeader from "@/components/UI/PageHeader";
+import StatusBadge, { deriveWallpaperStatus } from "@/components/UI/StatusBadge";
 import {
   Card,
   CardContent,
@@ -9,14 +9,13 @@ import {
 } from "@/components/shadcnui/card";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
+import { formatDate } from "@/lib/format";
 import { toImagePath } from "@/lib/imageUrl";
 import { createMetadata } from "@/lib/metadata";
-import { format } from "date-fns";
-import { ArrowLeftIcon, ImagesIcon } from "lucide-react";
+import { ImagesIcon } from "lucide-react";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import Image from "next/image";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import EditWallpaperForm from "./_components/edit-wallpaper-form";
 
@@ -70,11 +69,10 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
     notFound();
   }
 
-  const status =
-    wallpaper.isApproved ? { label: "Approved", variant: "default" as const }
-    : wallpaper.moderationQueue?.status === "REJECTED" ?
-      { label: "Rejected", variant: "destructive" as const }
-    : { label: "Pending review", variant: "secondary" as const };
+  const status = deriveWallpaperStatus({
+    isApproved: wallpaper.isApproved,
+    moderationStatus: wallpaper.moderationQueue?.status,
+  });
 
   const src = toImagePath(
     wallpaper.thumb400Url ?? wallpaper.thumb800Url ?? wallpaper.originalUrl,
@@ -82,74 +80,57 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
   const isOptimizable = wallpaper.isApproved && wallpaper.isPublic;
 
   return (
-    <div className="w-full p-6">
-      <div className="grid gap-6">
-        <div className="grid gap-3">
-          <Link
-            href={"/upload" as Route}
-            className={buttonVariants({
-              variant: "ghost",
-              size: "sm",
-              className: "w-fit",
-            })}>
-            <ArrowLeftIcon
-              data-icon="inline-start"
-              className="size-4"
+    <div className="grid gap-6">
+      <PageHeader
+        eyebrow="Submissions"
+        title="Edit upload"
+        description="Update the details of your wallpaper. Rejected uploads are resubmitted for review when you save."
+        backHref={"/upload" as Route}
+        backLabel="Back to my uploads"
+      />
+
+      <div className="grid items-start gap-6 lg:grid-cols-12">
+        <Card className="gap-0 overflow-hidden py-0 lg:col-span-4">
+          <div className="bg-muted/40 relative aspect-video overflow-hidden">
+            {src ?
+              isOptimizable ?
+                <Image
+                  src={src}
+                  alt={wallpaper.title}
+                  fill={true}
+                  sizes="(max-width: 1024px) 100vw, 33vw"
+                  placeholder={wallpaper.blurDataUrl ? "blur" : "empty"}
+                  blurDataURL={wallpaper.blurDataUrl ?? undefined}
+                  className="object-cover"
+                />
+              : /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={src}
+                  alt={wallpaper.title}
+                  className="absolute inset-0 size-full object-cover"
+                />
+
+            : <div className="text-muted-foreground flex size-full items-center justify-center">
+                <ImagesIcon className="size-10" />
+              </div>
+            }
+            <StatusBadge
+              status={status}
+              className="absolute top-2.5 left-2.5 shadow-sm"
             />
-            Back to my uploads
-          </Link>
-          <div className="grid gap-1">
-            <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              Edit upload
-            </h1>
-            <p className="text-muted-foreground max-w-2xl text-sm">
-              Update the details of your wallpaper. Rejected uploads are
-              resubmitted for review when you save.
-            </p>
           </div>
-        </div>
-
-        <div className="grid items-start gap-6 lg:grid-cols-12">
-          <Card className="gap-0 overflow-hidden py-0 lg:col-span-4">
-            <div className="bg-muted/40 relative aspect-video overflow-hidden">
-              {src ?
-                isOptimizable ?
-                  <Image
-                    src={src}
-                    alt={wallpaper.title}
-                    fill={true}
-                    sizes="(max-width: 1024px) 100vw, 33vw"
-                    placeholder={wallpaper.blurDataUrl ? "blur" : "empty"}
-                    blurDataURL={wallpaper.blurDataUrl ?? undefined}
-                    className="object-cover"
-                  />
-                : /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={src}
-                    alt={wallpaper.title}
-                    className="absolute inset-0 size-full object-cover"
-                  />
-
-              : <div className="text-muted-foreground flex size-full items-center justify-center">
-                  <ImagesIcon className="size-10" />
-                </div>
-              }
-              <Badge
-                variant={status.variant}
-                className="absolute top-2 left-2 shadow-sm">
-                {status.label}
-              </Badge>
-            </div>
-            <CardContent className="grid gap-1 p-3">
-              <p className="truncate text-sm font-medium">{wallpaper.title}</p>
-              <time
-                suppressHydrationWarning={true}
-                dateTime={wallpaper.createdAt.toISOString()}
-                className="text-muted-foreground text-xs">
-                Uploaded {format(wallpaper.createdAt, "MMM d, yyyy")}
-              </time>
-            </CardContent>
-          </Card>
+          <CardContent className="grid gap-1 p-3.5">
+            <p className="text-body-sm truncate font-medium">
+              {wallpaper.title}
+            </p>
+            <time
+              suppressHydrationWarning={true}
+              dateTime={wallpaper.createdAt.toISOString()}
+              className="text-caption text-muted-foreground">
+              Uploaded {formatDate(wallpaper.createdAt)}
+            </time>
+          </CardContent>
+        </Card>
 
           <Card className="lg:col-span-8">
             <CardHeader>
@@ -172,7 +153,6 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
           </Card>
         </div>
       </div>
-    </div>
   );
 };
 

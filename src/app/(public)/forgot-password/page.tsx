@@ -1,44 +1,63 @@
-import Brand from "@/components/Brand/Brand";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/shadcnui/card";
+import AuthShell from "@/components/Auth/AuthShell";
+import { Alert, AlertDescription, AlertTitle } from "@/components/shadcnui/alert";
+import { buttonVariants } from "@/components/shadcnui/button";
 import { createMetadata } from "@/lib/metadata";
+import { ArrowLeftIcon, KeyRoundIcon, UserPlusIcon } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = createMetadata({
-  title: "Forgot Password",
-  description: "Reset your Lumiwalls password",
+  title: "Account Recovery",
+  description: "Get help recovering access to your Lumiwalls account",
 });
 
 const ForgotPasswordPage = () => {
   return (
-    <section className="grid h-dvh place-items-center">
-      <Card className="w-xs sm:w-sm">
-        <CardHeader className="text-center">
-          <Brand />
-          <CardTitle>Forgot password</CardTitle>
-          <CardDescription>Password reset is coming soon</CardDescription>
-        </CardHeader>
-
-        <CardContent className="text-muted-foreground text-center text-sm">
-          If you have forgotten your password, please contact support or try
-          again later. This placeholder will be replaced with a reset form.
-        </CardContent>
-
-        <CardFooter className="justify-center">
+    <AuthShell
+      title="Account recovery"
+      description="Reset your access with an instance administrator"
+      footer={
+        <div className="flex w-full flex-col gap-2">
           <Link
             href="/"
-            className="text-sm hover:underline">
+            className={buttonVariants({ variant: "default", className: "w-full" })}>
+            <ArrowLeftIcon data-icon="inline-start" />
             Back to sign in
           </Link>
-        </CardFooter>
-      </Card>
-    </section>
+          <Link
+            href="/sign-up"
+            className={buttonVariants({ variant: "ghost", className: "w-full" })}>
+            <UserPlusIcon data-icon="inline-start" />
+            Create a new account
+          </Link>
+        </div>
+      }>
+      <div className="grid gap-4">
+        <Alert>
+          <KeyRoundIcon aria-hidden="true" />
+          <AlertTitle>Admin-assisted password resets</AlertTitle>
+          <AlertDescription>
+            Automated reset emails are not enabled on this Lumiwalls instance.
+          </AlertDescription>
+        </Alert>
+
+        <ol className="text-body-sm text-muted-foreground grid list-decimal gap-2 pl-5">
+          <li>
+            Contact your Lumiwalls administrator and share the email address
+            linked to your account.
+          </li>
+          <li>
+            Your administrator can issue a new temporary password from the user
+            management console.
+          </li>
+          <li>
+            Once signed in, update your password right away from Profile
+            security.
+          </li>
+        </ol>
+      </div>
+    </AuthShell>
   );
 };
 

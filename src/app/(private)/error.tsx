@@ -1,6 +1,7 @@
 "use client";
 
 import BoundaryErrorCard from "@/components/Errors/BoundaryErrorCard";
+import { usePathname } from "next/navigation";
 
 type PrivateErrorProps = {
   error: Error & { digest?: string };
@@ -9,6 +10,8 @@ type PrivateErrorProps = {
 };
 
 const PrivateError = ({ error, reset, unstable_retry }: PrivateErrorProps) => {
+  const pathname = usePathname() ?? "/browse";
+
   return (
     <BoundaryErrorCard
       title="Could not load this section"
@@ -16,7 +19,7 @@ const PrivateError = ({ error, reset, unstable_retry }: PrivateErrorProps) => {
       error={error}
       reset={reset}
       unstable_retry={unstable_retry}
-      route="/private"
+      route={pathname}
       backHref="/browse"
       backLabel="Back to browse"
     />

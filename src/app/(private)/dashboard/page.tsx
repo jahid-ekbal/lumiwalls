@@ -1,3 +1,4 @@
+import PageHeader from "@/components/UI/PageHeader";
 import { buttonVariants } from "@/components/shadcnui/button";
 import { createMetadata } from "@/lib/metadata";
 import { CompassIcon, UploadIcon } from "lucide-react";
@@ -32,31 +33,27 @@ export const metadata = createMetadata({
 const DashboardPage = () => {
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Your uploads, favorites, and activity over the last {TREND_DAYS}{" "}
-            days and beyond
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={"/browse" as Route}
-            className={buttonVariants({ variant: "outline" })}>
-            <CompassIcon />
-            <span>Browse</span>
-          </Link>
-          <Link
-            href={"/upload/new" as Route}
-            className={buttonVariants({ variant: "default" })}>
-            <UploadIcon />
-            <span>Upload</span>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Personal overview"
+        title="Dashboard"
+        description={`Your uploads, favorites, and activity over the last ${TREND_DAYS} days and beyond.`}
+        actions={
+          <>
+            <Link
+              href={"/browse" as Route}
+              className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <CompassIcon data-icon="inline-start" />
+              Browse
+            </Link>
+            <Link
+              href={"/upload/new" as Route}
+              className={buttonVariants({ variant: "default", size: "sm" })}>
+              <UploadIcon data-icon="inline-start" />
+              Upload
+            </Link>
+          </>
+        }
+      />
 
       <Suspense fallback={<StatsSkeleton />}>
         <DashboardStats />

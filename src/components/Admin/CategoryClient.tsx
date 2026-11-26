@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/shadcnui/alert";
+import EmptyState from "@/components/UI/EmptyState";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
 import {
@@ -191,43 +187,38 @@ const CategoryClient = ({ categories }: Props) => {
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Categories
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Manage categories for wallpapers. Changes reflect in the upload
-            page.
-          </p>
-        </div>
-      </div>
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
           <div>
             <CardTitle className="flex items-center gap-2">
               <FolderIcon className="size-4" />
-              Categories
+              All categories ({categories.length})
             </CardTitle>
             <CardDescription>
               Organize wallpapers into browsable categories
             </CardDescription>
           </div>
           <Button onClick={openCreateCategory}>
-            <PlusIcon />
+            <PlusIcon data-icon="inline-start" />
             Add Category
           </Button>
         </CardHeader>
         <CardContent>
           {categories.length === 0 ?
-            <Alert>
-              <AlertTitle>No categories yet</AlertTitle>
-              <AlertDescription>
-                Create categories here first, then they will be available in the
-                upload form.
-              </AlertDescription>
-            </Alert>
+            <EmptyState
+              compact={true}
+              icon={FolderIcon}
+              title="No categories yet"
+              description="Create categories here first so uploaders can classify wallpapers."
+              action={
+                <Button
+                  size="sm"
+                  onClick={openCreateCategory}>
+                  <PlusIcon data-icon="inline-start" />
+                  Add Category
+                </Button>
+              }
+            />
           : <Table>
               <TableHeader>
                 <TableRow>

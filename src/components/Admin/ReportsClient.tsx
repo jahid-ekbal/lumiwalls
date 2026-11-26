@@ -1,12 +1,11 @@
 "use client";
 
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/shadcnui/alert";
+import EmptyState from "@/components/UI/EmptyState";
+import Pagination from "@/components/UI/Pagination";
+import StatusBadge from "@/components/UI/StatusBadge";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/shadcnui/tabs";
 import {
   Card,
   CardContent,
@@ -188,28 +187,27 @@ const ReportsClient = ({ params, counts, totalPages, reports }: Props) => {
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Reports</CardTitle>
+          <CardTitle>Filter reports</CardTitle>
           <CardDescription>
             {`${counts.pending} pending, ${counts.total} matching filters`}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            {(["PENDING", "RESOLVED", "DISMISSED", "ALL"] as const).map(
-              (value) => (
-                <Button
-                  key={value}
-                  variant={activeStatus === value ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => {
-                    void setReportStatus(value);
-                    void setPage(1);
-                  }}>
-                  {value}
-                </Button>
-              ),
-            )}
-          </div>
+          <Tabs
+            value={activeStatus}
+            onValueChange={(value) => {
+              void setReportStatus(
+                value as "PENDING" | "RESOLVED" | "DISMISSED" | "ALL",
+              );
+              void setPage(1);
+            }}>
+            <TabsList>
+              <TabsTrigger value="PENDING">Pending</TabsTrigger>
+              <TabsTrigger value="RESOLVED">Resolved</TabsTrigger>
+              <TabsTrigger value="DISMISSED">Dismissed</TabsTrigger>
+              <TabsTrigger value="ALL">All</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="flex flex-col gap-3 lg:flex-row">
             <div className="relative flex-1">
               <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -277,10 +275,12 @@ const ReportsClient = ({ params, counts, totalPages, reports }: Props) => {
         </CardHeader>
         <CardContent>
           {reports.length === 0 ?
-            <Alert>
-              <AlertTitle>No reports</AlertTitle>
-              <AlertDescription>No reports match this filter.</AlertDescription>
-            </Alert>
+            <EmptyState
+              compact={true}
+              icon={SearchIcon}
+              title="No reports found"
+              description="No reports match this filter."
+            />
           : <Table>
               <TableHeader>
                 <TableRow>
@@ -306,10 +306,10 @@ const ReportsClient = ({ params, counts, totalPages, reports }: Props) => {
                             <img
                               src={thumb}
                               alt={report.wallpaper.title}
-                              className="size-10 shrink-0 rounded-xl object-cover"
+                              className="size-10 shrink-0 rounded-inset object-cover"
                               loading="lazy"
                             />
-                          : <div className="bg-muted size-10 shrink-0 rounded-xl" />
+                          : <div className="bg-muted size-10 shrink-0 rounded-inset" />
                           }
                           <div>
                             <p className="font-medium">
@@ -339,15 +339,13 @@ const ReportsClient = ({ params, counts, totalPages, reports }: Props) => {
                       </TableCell>
                       <TableCell>
                         <div className="grid gap-1">
-                          <Badge
-                            variant={
-                              report.status === "PENDING" ? "secondary"
-                              : report.status === "RESOLVED" ?
-                                "default"
-                              : "outline"
-                            }>
-                            {report.status}
-                          </Badge>
+                          <StatusBadge
+                            status={
+                              report.status === "RESOLVED" ? "RESOLVED"
+                              : report.status === "DISMISSED" ? "DISMISSED"
+                              : "PENDING"
+                            }
+                          />
                           {report.reviewer ?
                             <span className="text-muted-foreground text-xs">
                               {report.reviewer.email}
@@ -374,27 +372,11 @@ const ReportsClient = ({ params, counts, totalPages, reports }: Props) => {
               </TableBody>
             </Table>
           }
-          <div className="mt-4 flex items-center justify-between">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={activePage <= 1}
-              onClick={() => void setPage(Math.max(1, activePage - 1))}>
-              Previous
-            </Button>
-            <span className="text-muted-foreground text-sm">
-              {`Page ${activePage} of ${totalPages}`}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={activePage >= totalPages}
-              onClick={() =>
-                void setPage(Math.min(totalPages, activePage + 1))
-              }>
-              Next
-            </Button>
-          </div>
+          <Pagination
+            page={activePage}
+            totalPages={totalPages}
+            onPageChange={(next) => void setPage(next)}
+          />
         </CardContent>
       </Card>
       <Dialog

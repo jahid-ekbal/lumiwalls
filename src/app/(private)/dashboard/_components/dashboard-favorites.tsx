@@ -96,13 +96,13 @@ const DashboardFavorites = async () => {
                       sizes="(max-width: 1024px) 45vw, 220px"
                       placeholder={wallpaper.blurDataUrl ? "blur" : "empty"}
                       blurDataURL={wallpaper.blurDataUrl ?? undefined}
-                      className="pointer-events-none aspect-4/3 h-auto w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]"
+                      className="pointer-events-none aspect-4/3 h-auto w-full object-cover transition-transform duration-base motion-safe:group-hover:scale-[1.05]"
                     />
                   : <div className="bg-muted flex aspect-4/3 w-full items-center justify-center">
                       <ImagesIcon className="text-muted-foreground size-5" />
                     </div>
                   }
-                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-[11px] font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                  <span className="text-caption absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 font-medium text-white opacity-0 transition-opacity duration-fast group-hover:opacity-100">
                     <span className="line-clamp-1">{wallpaper.title}</span>
                   </span>
                 </Link>

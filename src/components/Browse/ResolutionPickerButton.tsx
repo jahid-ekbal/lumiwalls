@@ -24,6 +24,8 @@ type ResolutionPickerButtonProps = {
   urls: WallpaperUrlSet;
   downloadCount: number;
   onUpdated?: (downloadCount: number | null) => void;
+  size?: "xs" | "sm" | "default" | "lg";
+  className?: string;
 };
 
 const ResolutionPickerButton = ({
@@ -31,6 +33,8 @@ const ResolutionPickerButton = ({
   urls,
   downloadCount,
   onUpdated,
+  size = "sm",
+  className,
 }: ResolutionPickerButtonProps) => {
   const { busy, trigger } = useDownloadWallpaper({
     wallpaperId,
@@ -54,7 +58,7 @@ const ResolutionPickerButton = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={buttonVariants({ variant: "default", size: "sm" })}
+        className={buttonVariants({ variant: "default", size, className })}
         disabled={busy || choices.length === 0}>
         {busy ?
           <Loader2Icon

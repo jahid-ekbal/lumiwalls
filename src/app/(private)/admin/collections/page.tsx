@@ -1,7 +1,8 @@
+import PageHeader from "@/components/UI/PageHeader";
+import { TableCardSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
 import { collectionsSearchParamsSchema } from "@/lib/zodSchema";
 import { Suspense } from "react";
-import { StatsSkeleton } from "../_components/dashboard-skeletons";
 import CollectionsContent from "./_components/collections-content";
 
 export const dynamic = "force-dynamic";
@@ -32,15 +33,12 @@ const CollectionsPage = async ({ searchParams }: CollectionsPageProps) => {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-2">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Collections
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Manage wallpaper collections on Lumiwalls
-        </p>
-      </div>
-      <Suspense fallback={<StatsSkeleton />}>
+      <PageHeader
+        eyebrow="Curation"
+        title="Collections"
+        description="Curate editorial sets of approved wallpapers."
+      />
+      <Suspense fallback={<TableCardSkeleton rows={6} />}>
         <CollectionsContent params={params} />
       </Suspense>
     </div>

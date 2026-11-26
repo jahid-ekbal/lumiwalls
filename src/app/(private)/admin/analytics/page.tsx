@@ -1,7 +1,8 @@
+import PageHeader from "@/components/UI/PageHeader";
+import { AdminAnalyticsSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
 import { analyticsSearchParamsSchema } from "@/lib/zodSchema";
 import { Suspense } from "react";
-import { StatsSkeleton } from "../_components/dashboard-skeletons";
 import AnalyticsContent from "./_components/analytics-content";
 
 export const dynamic = "force-dynamic";
@@ -29,15 +30,12 @@ const AnalyticsPage = async ({ searchParams }: AnalyticsPageProps) => {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-2">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Analytics
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          View analytics on Lumiwalls
-        </p>
-      </div>
-      <Suspense fallback={<StatsSkeleton />}>
+      <PageHeader
+        eyebrow="Administration"
+        title="Analytics"
+        description="Platform activity, top-performing wallpapers, moderation latency, and storage footprint."
+      />
+      <Suspense fallback={<AdminAnalyticsSkeleton />}>
         <AnalyticsContent params={params} />
       </Suspense>
     </div>

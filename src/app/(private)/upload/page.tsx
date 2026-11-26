@@ -1,3 +1,4 @@
+import PageHeader from "@/components/UI/PageHeader";
 import { buttonVariants } from "@/components/shadcnui/button";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
@@ -111,25 +112,20 @@ const UploadPage = async ({ searchParams }: UploadPageProps) => {
   });
 
   return (
-    <div className="w-full p-6">
-      <div className="grid gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="grid gap-1">
-            <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              My uploads
-            </h1>
-            <p className="text-muted-foreground max-w-2xl text-sm">
-              Track, edit, and manage the wallpapers you have shared. Approved
-              wallpapers appear in Browse.
-            </p>
-          </div>
+    <div className="grid gap-6">
+      <PageHeader
+        eyebrow="Submissions"
+        title="My uploads"
+        description="Track, edit, and manage the wallpapers you have shared. Approved wallpapers appear in Browse."
+        actions={
           <Link
             href={"/upload/new" as Route}
-            className={buttonVariants()}>
+            className={buttonVariants({ size: "sm" })}>
             <UploadIcon data-icon="inline-start" />
             Upload wallpaper
           </Link>
-        </div>
+        }
+      />
 
         <UploadStatusTabs
           active={status}
@@ -153,8 +149,7 @@ const UploadPage = async ({ searchParams }: UploadPageProps) => {
               status={status}
             />
           </>
-        }
-      </div>
+      }
     </div>
   );
 };

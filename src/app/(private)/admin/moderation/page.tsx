@@ -1,8 +1,9 @@
+import PageHeader from "@/components/UI/PageHeader";
+import { TableCardSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
-import { Suspense } from "react";
-import { ModerationSkeleton } from "../_components/dashboard-skeletons";
-import ModerationContent from "./_components/moderation-content";
 import { moderationSearchParamsSchema } from "@/lib/zodSchema";
+import { Suspense } from "react";
+import ModerationContent from "./_components/moderation-content";
 
 export const dynamic = "force-dynamic";
 
@@ -34,15 +35,12 @@ const ModerationPage = async ({ searchParams }: ModerationPageProps) => {
     parsed.success ? parsed.data : moderationSearchParamsSchema.parse({});
   return (
     <div className="grid gap-6">
-      <div className="grid gap-2">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Moderation
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Moderate content and submissions on Lumiwalls
-        </p>
-      </div>
-      <Suspense fallback={<ModerationSkeleton />}>
+      <PageHeader
+        eyebrow="Trust and safety"
+        title="Moderation"
+        description="Review pending wallpaper submissions and resolve community reports."
+      />
+      <Suspense fallback={<TableCardSkeleton rows={6} />}>
         <ModerationContent params={params} />
       </Suspense>
     </div>

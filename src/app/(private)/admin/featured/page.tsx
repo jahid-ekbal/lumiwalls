@@ -1,7 +1,8 @@
+import PageHeader from "@/components/UI/PageHeader";
+import { TableCardSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
 import { featuredSearchParamsSchema } from "@/lib/zodSchema";
 import { Suspense } from "react";
-import { StatsSkeleton } from "../_components/dashboard-skeletons";
 import FeaturedContent from "./_components/featured-content";
 
 export const dynamic = "force-dynamic";
@@ -35,15 +36,12 @@ const FeaturedPage = async ({ searchParams }: FeaturedPageProps) => {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-2">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Featured
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Manage featured wallpapers on Lumiwalls
-        </p>
-      </div>
-      <Suspense fallback={<StatsSkeleton />}>
+      <PageHeader
+        eyebrow="Curation"
+        title="Featured"
+        description="Control featured flags, editors picks, and scheduled placements."
+      />
+      <Suspense fallback={<TableCardSkeleton rows={6} />}>
         <FeaturedContent params={params} />
       </Suspense>
     </div>

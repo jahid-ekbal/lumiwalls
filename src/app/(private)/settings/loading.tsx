@@ -1,32 +1,33 @@
+import {
+  FormCardSkeleton,
+  PageHeaderSkeleton,
+} from "@/components/UI/Skeletons";
 import { Card, CardContent, CardHeader } from "@/components/shadcnui/card";
 import { Skeleton } from "@/components/shadcnui/skeleton";
 
 const SettingsLoading = () => {
   return (
-    <div className="mx-auto grid w-full max-w-2xl gap-6 p-6">
-      <div className="grid gap-2">
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="h-4 w-64" />
+    <div className="grid gap-6">
+      <PageHeaderSkeleton />
+      <div className="grid max-w-3xl gap-6">
+        <FormCardSkeleton fields={3} />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-4 w-72 max-w-full" />
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-52" />
+            <Skeleton className="h-4 w-64 max-w-full" />
+          </CardHeader>
+        </Card>
       </div>
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-5 w-44" />
-          <Skeleton className="h-4 w-56" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={index}
-                className="grid gap-2">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-9 w-full" />
-              </div>
-            ))}
-            <Skeleton className="h-9 w-32" />
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

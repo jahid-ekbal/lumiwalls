@@ -1,4 +1,5 @@
 import type { TrendPoint } from "@/components/Admin/AdminTrendChart";
+import { formatDate as formatSharedDate, formatUtcDayLabel, initialsOf } from "@/lib/format";
 
 export const TREND_DAYS = 30;
 export const PREVIEW_TAKE = 5;
@@ -34,30 +35,12 @@ export const buildTrend = (
 
   return [...buckets.entries()].map(([date, counts]) => ({
     date,
-    label: new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    }),
+    label: formatUtcDayLabel(date),
     ...counts,
   }));
 };
 
-export const formatDate = (date: Date) =>
-  date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+export const formatDate = (date: Date) => formatSharedDate(date);
 
-export const initials = (name: string, email: string) => {
-  const source = name.trim() || email.trim();
-  if (!source) {
-    return "?";
-  }
-  const parts = source.split(/\s+/);
-  if (parts.length > 1) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-};
+export const initials = (name: string, email: string) =>
+  initialsOf(name, email);

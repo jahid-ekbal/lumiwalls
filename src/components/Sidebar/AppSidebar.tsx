@@ -24,6 +24,7 @@ import {
   ImagesIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
+  SettingsIcon,
   ShieldIcon,
   SparklesIcon,
   TagsIcon,
@@ -34,6 +35,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 const items = [
   { title: "Browse", url: "/browse", icon: CompassIcon },
@@ -55,12 +57,24 @@ const adminItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
 
   const isAdmin = session?.user.role === "admin";
   const path = pathname ?? "";
+
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [path, isMobile, setOpenMobile]);
+
+  const closeMobile = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   function isActivePath(url: string) {
     return path === url || path.startsWith(url + "/");
@@ -82,42 +96,48 @@ export function AppSidebar() {
       variant="sidebar"
       className="z-40">
       <SidebarHeader>
-        <div className="flex h-12 items-center px-0.5">
-          <Brand showText={state === "expanded"} />
+        <div className="flex h-12 items-center px-1">
+          <Brand showText={state === "expanded" || isMobile} />
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>General</SidebarGroupLabel>
+          <SidebarGroupLabel>Gallery</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    isActive={isActiveItem(item.url)}
-                    render={
-                      <Link href={item.url as Route}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    }
-                    tooltip={item.title}
-                  />
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                const active = isActiveItem(item.url);
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      isActive={active}
+                      render={
+                        <Link
+                          href={item.url as Route}
+                          aria-current={active ? "page" : undefined}
+                          onClick={closeMobile}>
+                          <item.icon aria-hidden="true" />
+                          <span>{item.title}</span>
+                        </Link>
+                      }
+                      tooltip={item.title}
+                    />
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
+        {isAdmin ?
           <SidebarGroup>
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminItems.map((item) => {
                   const isAdminDashboard = item.url === "/admin";
-                  const isActive =
+                  const active =
                     isAdminDashboard ?
                       path === "/admin"
                     : isActivePath(item.url);
@@ -125,10 +145,13 @@ export function AppSidebar() {
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
-                        isActive={isActive}
+                        isActive={active}
                         render={
-                          <Link href={item.url as Route}>
-                            <item.icon />
+                          <Link
+                            href={item.url as Route}
+                            aria-current={active ? "page" : undefined}
+                            onClick={closeMobile}>
+                            <item.icon aria-hidden="true" />
                             <span>{item.title}</span>
                           </Link>
                         }
@@ -140,7 +163,7 @@ export function AppSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        )}
+        : null}
       </SidebarContent>
 
       <SidebarFooter>
@@ -149,12 +172,30 @@ export function AppSidebar() {
             <SidebarMenuButton
               isActive={isActivePath("/profile")}
               render={
-                <Link href={"/profile" as Route}>
-                  <UserRoundIcon />
+                <Link
+                  href={"/profile" as Route}
+                  aria-current={isActivePath("/profile") ? "page" : undefined}
+                  onClick={closeMobile}>
+                  <UserRoundIcon aria-hidden="true" />
                   <span>Profile</span>
                 </Link>
               }
               tooltip="Profile"
+            />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              isActive={isActivePath("/settings")}
+              render={
+                <Link
+                  href={"/settings" as Route}
+                  aria-current={isActivePath("/settings") ? "page" : undefined}
+                  onClick={closeMobile}>
+                  <SettingsIcon aria-hidden="true" />
+                  <span>Settings</span>
+                </Link>
+              }
+              tooltip="Settings"
             />
           </SidebarMenuItem>
         </SidebarMenu>

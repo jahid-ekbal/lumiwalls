@@ -168,9 +168,9 @@ const DashboardActivityFeed = async () => {
                     <Icon className="size-3.5" />
                   </span>
                   <span className="grid min-w-0 flex-1 gap-0.5">
-                    <span className="truncate text-sm">{event.text}</span>
+                    <span className="text-body-sm truncate">{event.text}</span>
                     {event.note ?
-                      <span className="text-muted-foreground truncate text-[11px] italic">
+                      <span className="text-caption text-muted-foreground truncate italic">
                         {event.note}
                       </span>
                     : null}
@@ -178,7 +178,7 @@ const DashboardActivityFeed = async () => {
                   <time
                     suppressHydrationWarning={true}
                     dateTime={event.date.toISOString()}
-                    className="text-muted-foreground shrink-0 text-[11px]">
+                    className="text-caption text-muted-foreground shrink-0">
                     {formatDistanceToNow(event.date, { addSuffix: true })}
                   </time>
                 </>

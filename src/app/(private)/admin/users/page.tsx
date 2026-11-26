@@ -1,7 +1,8 @@
+import PageHeader from "@/components/UI/PageHeader";
+import { TableCardSkeleton } from "@/components/UI/Skeletons";
 import { createMetadata } from "@/lib/metadata";
 import { usersSearchParamsSchema } from "@/lib/zodSchema";
 import { Suspense } from "react";
-import { ModerationSkeleton } from "../_components/dashboard-skeletons";
 import UsersContent from "./_components/users-content";
 
 export const dynamic = "force-dynamic";
@@ -33,15 +34,12 @@ const UsersPage = async ({ searchParams }: UsersPageProps) => {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-2">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Users
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Manage users on Lumiwalls
-        </p>
-      </div>
-      <Suspense fallback={<ModerationSkeleton />}>
+      <PageHeader
+        eyebrow="Accounts"
+        title="Users"
+        description="Search accounts, review upload counts, and manage roles or bans."
+      />
+      <Suspense fallback={<TableCardSkeleton rows={6} />}>
         <UsersContent params={params} />
       </Suspense>
     </div>

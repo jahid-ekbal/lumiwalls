@@ -1,19 +1,24 @@
-import { initialsOf } from "@/components/Browse/countFormat";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@/components/shadcnui/avatar";
+import { buttonVariants } from "@/components/shadcnui/button";
 import { Card } from "@/components/shadcnui/card";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/database/dbClient";
+import { formatCount, formatDate, initialsOf } from "@/lib/format";
 import { toImagePath } from "@/lib/imageUrl";
-import { format } from "date-fns";
-import { CalendarDaysIcon, MailIcon, MapPinIcon } from "lucide-react";
+import {
+  CalendarDaysIcon,
+  ExternalLinkIcon,
+  MailIcon,
+  MapPinIcon,
+} from "lucide-react";
 import type { Route } from "next";
+import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
-import { headers } from "next/headers";
 import ProfileEditDialog from "./profile-edit-dialog";
 import ProfileMedia from "./profile-media";
 
@@ -34,6 +39,14 @@ const ProfileIdentity = async () => {
       location: true,
       handle: true,
       createdAt: true,
+      _count: {
+        select: {
+          wallpapers: true,
+          favorites: true,
+          followers: true,
+          following: true,
+        },
+      },
     },
   });
   if (!user) {
@@ -45,7 +58,7 @@ const ProfileIdentity = async () => {
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
-      <div className="relative h-44 overflow-hidden sm:h-52">
+      <div className="bg-muted/40 relative h-44 overflow-hidden sm:h-52">
         {bannerSrc ?
           <Image
             src={bannerSrc}
@@ -55,15 +68,21 @@ const ProfileIdentity = async () => {
             sizes="(max-width: 1100px) 100vw, 1216px"
             className="object-cover"
           />
-        : <div className="from-primary/25 via-primary/5 bg-gradient-to-tr to-transparent" />
+        : <div
+            aria-hidden="true"
+            className="relative size-full overflow-hidden bg-gradient-to-br from-neutral-800/80 via-neutral-900/90 to-background">
+            <div className="absolute -top-24 -left-16 size-72 rounded-full bg-white/5 blur-3xl" />
+            <div className="absolute -right-12 -bottom-20 size-64 rounded-full bg-white/5 blur-3xl" />
+            <div className="border-border/30 absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          </div>
         }
-        <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-3 z-10">
           <ProfileMedia kind="banner" />
         </div>
       </div>
 
-      <div className="-mt-10 grid gap-3 px-4 pb-4 sm:px-6 sm:pb-6">
-        <div className="flex items-end justify-between gap-3">
+      <div className="-mt-10 grid gap-4 px-4 pb-5 sm:px-6 sm:pb-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="relative">
             <Avatar className="ring-card size-20 ring-4">
               {avatarSrc ?
@@ -80,15 +99,25 @@ const ProfileIdentity = async () => {
               <ProfileMedia kind="avatar" />
             </div>
           </div>
-          <ProfileEditDialog
-            name={user.name}
-            bio={user.bio ?? ""}
-            location={user.location ?? ""}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            {user.handle ?
+              <Link
+                href={`/u/${user.handle}` as Route}
+                className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <ExternalLinkIcon data-icon="inline-start" />
+                Public profile
+              </Link>
+            : null}
+            <ProfileEditDialog
+              name={user.name}
+              bio={user.bio ?? ""}
+              location={user.location ?? ""}
+            />
+          </div>
         </div>
 
         <div className="grid gap-1">
-          <h2 className="font-heading text-xl font-semibold tracking-tight">
+          <h2 className="font-heading text-h2 font-semibold tracking-tight">
             {user.name}
           </h2>
           {user.handle ?
@@ -99,24 +128,63 @@ const ProfileIdentity = async () => {
             </Link>
           : null}
           {user.bio ?
-            <p className="text-sm whitespace-pre-line">{user.bio}</p>
-          : <p className="text-muted-foreground text-sm">No bio yet.</p>}
+            <p className="text-body-sm pt-1 whitespace-pre-line">{user.bio}</p>
+          : <p className="text-body-sm text-muted-foreground pt-1">
+              Add a short bio so visitors know what you curate and shoot.
+            </p>
+          }
         </div>
 
-        <div className="text-muted-foreground grid gap-1.5 text-sm sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-1">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
+          <span>
+            <span className="text-foreground font-semibold tabular-nums">
+              {formatCount(user._count.wallpapers)}
+            </span>{" "}
+            uploads
+          </span>
+          <span>
+            <span className="text-foreground font-semibold tabular-nums">
+              {formatCount(user._count.favorites)}
+            </span>{" "}
+            favorites
+          </span>
+          <span>
+            <span className="text-foreground font-semibold tabular-nums">
+              {formatCount(user._count.followers)}
+            </span>{" "}
+            followers
+          </span>
+          <span>
+            <span className="text-foreground font-semibold tabular-nums">
+              {formatCount(user._count.following)}
+            </span>{" "}
+            following
+          </span>
+        </div>
+
+        <div className="text-caption text-muted-foreground grid gap-1.5 sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-1">
           <span className="flex items-center gap-1.5">
-            <MailIcon className="size-4" />
+            <MailIcon
+              aria-hidden="true"
+              className="size-3.5"
+            />
             {user.email}
           </span>
           {user.location ?
             <span className="flex items-center gap-1.5">
-              <MapPinIcon className="size-4" />
+              <MapPinIcon
+                aria-hidden="true"
+                className="size-3.5"
+              />
               {user.location}
             </span>
           : null}
           <span className="flex items-center gap-1.5">
-            <CalendarDaysIcon className="size-4" />
-            Member since {format(user.createdAt, "MMMM yyyy")}
+            <CalendarDaysIcon
+              aria-hidden="true"
+              className="size-3.5"
+            />
+            Member since {formatDate(user.createdAt, "MMMM yyyy")}
           </span>
         </div>
       </div>

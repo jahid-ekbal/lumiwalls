@@ -32,11 +32,20 @@ const Privatelayout = async ({ children }: LayoutProps) => {
   return (
     <TooltipProvider>
       <SidebarProvider defaultOpen={defaultOpen}>
+        <a
+          href="#main-content"
+          className="bg-primary text-primary-foreground focus-visible:ring-ring sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none">
+          Skip to main content
+        </a>
         <AppSidebar />
         <SidebarInset className="isolate">
           <AmbientBackground />
           <PrivateHeader />
-          {children}
+          <main
+            id="main-content"
+            className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+            {children}
+          </main>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

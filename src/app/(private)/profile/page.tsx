@@ -1,3 +1,4 @@
+import PageHeader from "@/components/UI/PageHeader";
 import { buttonVariants } from "@/components/shadcnui/button";
 import { createMetadata } from "@/lib/metadata";
 import { profileParamsSchema } from "@/lib/zodSchema";
@@ -35,37 +36,35 @@ const ProfilePage = async ({ searchParams }: ProfilePageProps) => {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Profile
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Your identity, wallpapers, and account security.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Creator"
+        title="Profile"
+        description="Your public identity, uploaded and favorited wallpapers, and account security."
+      />
 
-      <div className="border-border/60 bg-card/40 w-fit rounded-4xl border p-1">
+      <div className="border-border/60 bg-card/50 w-fit rounded-control border p-1">
         <div className="flex gap-1">
-          {PROFILE_TABS.map(({ value, label, icon: Icon }) => (
-            <Link
-              key={value}
-              href={
-                (value === "identity" ? "/profile" : (
-                  "/profile?tab=security"
-                )) as Route
-              }
-              className={buttonVariants({
-                variant: tab === value ? "default" : "ghost",
-                size: "sm",
-              })}
-              data-active={tab === value ? true : undefined}>
-              <Icon
-                data-icon="inline-start"
-                className="size-4"
-              />
-              {label}
-            </Link>
-          ))}
+          {PROFILE_TABS.map(({ value, label, icon: Icon }) => {
+            const isActive = tab === value;
+            return (
+              <Link
+                key={value}
+                href={
+                  (value === "identity" ? "/profile" : (
+                    "/profile?tab=security"
+                  )) as Route
+                }
+                aria-current={isActive ? "page" : undefined}
+                className={buttonVariants({
+                  variant: isActive ? "default" : "ghost",
+                  size: "sm",
+                })}
+                data-active={isActive ? true : undefined}>
+                <Icon data-icon="inline-start" />
+                {label}
+              </Link>
+            );
+          })}
         </div>
       </div>
 

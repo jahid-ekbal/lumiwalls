@@ -1,5 +1,8 @@
 "use client";
 
+import EmptyState from "@/components/UI/EmptyState";
+import PageHeader from "@/components/UI/PageHeader";
+import StatusBadge from "@/components/UI/StatusBadge";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
 import {
@@ -36,7 +39,6 @@ import {
 } from "@/server/actions/collections";
 import { ArrowDownIcon, ArrowUpIcon, Loader2Icon } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "react-toastify";
@@ -192,42 +194,43 @@ const CollectionDetailClient = ({ collection, items }: Props) => {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-2">
-        <Link
-          href={"/admin/collections" as Route}
-          className="text-muted-foreground text-sm">
-          Back to collections
-        </Link>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {collection.title}
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          {`${collection.slug} plus ${items.length} items`}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Collection"
+        title={collection.title}
+        description={`${collection.slug} · ${items.length} items`}
+        backHref={"/admin/collections" as Route}
+        backLabel="Back to collections"
+        actions={
+          <Button
+            size="sm"
+            onClick={() => setAddOpen(true)}>
+            Add wallpaper
+          </Button>
+        }
+      />
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-center gap-1">
-            <Badge variant={collection.active ? "default" : "secondary"}>
-              {collection.active ? "Active" : "Hidden"}
-            </Badge>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <StatusBadge status={collection.active ? "ACTIVE" : "INACTIVE"} />
             <Badge variant="outline">{`Order ${collection.sortOrder}`}</Badge>
           </div>
           <CardTitle>Ordered items</CardTitle>
           <CardDescription>Approved public wallpapers only</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={() => setAddOpen(true)}>
-              Add wallpaper
-            </Button>
-          </div>
           {items.length === 0 ?
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No wallpapers yet. Add by wallpaper ID from browse.
-            </p>
+            <EmptyState
+              compact={true}
+              title="No wallpapers in this collection"
+              description="Add approved wallpapers by ID from Browse."
+              action={
+                <Button
+                  size="sm"
+                  onClick={() => setAddOpen(true)}>
+                  Add wallpaper
+                </Button>
+              }
+            />
           : <Table>
               <TableHeader>
                 <TableRow>

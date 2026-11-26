@@ -12,7 +12,10 @@ type FavoriteButtonProps = {
   favorited: boolean;
   favoriteCount: number;
   onUpdated?: (favorited: boolean, favoriteCount: number) => void;
-  size?: "xs" | "sm" | "default";
+  size?: "xs" | "sm" | "default" | "icon-sm" | "icon-xs";
+  variant?: "ghost" | "outline" | "secondary";
+  iconOnly?: boolean;
+  className?: string;
 };
 
 const FavoriteButton = ({
@@ -21,6 +24,9 @@ const FavoriteButton = ({
   favoriteCount,
   onUpdated,
   size = "sm",
+  variant = "ghost",
+  iconOnly = false,
+  className,
 }: FavoriteButtonProps) => {
   const [overlay, setOverlay] = useState<{
     favorited: boolean;
@@ -68,20 +74,28 @@ const FavoriteButton = ({
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant={variant}
       size={size}
       disabled={busy}
       aria-pressed={current.favorited}
-      className={cn(current.favorited && "text-rose-300 hover:text-rose-300")}
+      aria-label={
+        iconOnly ?
+          current.favorited ? "Remove from favorites" : "Add to favorites"
+        : undefined
+      }
+      className={cn(
+        current.favorited && "text-rose-300 hover:text-rose-300",
+        className,
+      )}
       onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
         void handleToggle();
       }}>
       <HeartIcon
-        data-icon="inline-start"
-        className={cn("size-4", current.favorited && "fill-current")}
+        data-icon={iconOnly ? undefined : "inline-start"}
+        className={cn(current.favorited && "fill-current")}
       />
-      {current.favorited ? "Favorited" : "Favorite"}
+      {iconOnly ? null : current.favorited ? "Favorited" : "Favorite"}
     </Button>
   );
 };
