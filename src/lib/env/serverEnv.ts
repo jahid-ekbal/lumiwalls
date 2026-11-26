@@ -21,9 +21,7 @@ export const serverEnv = createEnv({
     BETTER_AUTH_SECRET: z
       .string()
       .min(32, { error: "BETTER_AUTH_SECRET must be at least 32 characters" }),
-    BETTER_AUTH_URL: z
-      .string()
-      .url({ error: "BETTER_AUTH_URL must be a valid URL" }),
+    BETTER_AUTH_URL: z.url({ error: "BETTER_AUTH_URL must be a valid URL" }),
     BETTER_AUTH_ALLOWED_ORIGINS: z.string().optional(),
     BETTER_AUTH_TELEMETRY: z.enum(["1", "0"]).optional(),
     S3_ENDPOINT: z.url(),
@@ -31,7 +29,6 @@ export const serverEnv = createEnv({
     S3_ACCESS_KEY_ID: z.string().min(1),
     S3_SECRET_ACCESS_KEY: z.string().min(1),
     S3_BUCKET_NAME: z.string().min(1),
-    S3_PUBLIC_URL: z.url().optional(),
     // Primary admin account. Required: the app protects this account from
     // demotion, bans, and deletion. The seed password is seed-only and is
     // validated inside prisma/seed.ts, never by the running app.

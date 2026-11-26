@@ -21,6 +21,8 @@ export const browseOrientationValues = [
 
 export const browseFeaturedValues = ["any", "featured"] as const;
 
+export const browseFeedValues = ["all", "following"] as const;
+
 const noScrollPush = {
   history: "push" as const,
   shallow: false,
@@ -37,6 +39,9 @@ export const browseParsers = {
     .withOptions(noScrollPush),
   featured: parseAsStringLiteral(browseFeaturedValues)
     .withDefault("any")
+    .withOptions(noScrollPush),
+  feed: parseAsStringLiteral(browseFeedValues)
+    .withDefault("all")
     .withOptions(noScrollPush),
   colors: parseAsArrayOf(parseAsInteger)
     .withDefault([])

@@ -21,6 +21,8 @@ import {
 import { COLOR_BUCKETS } from "@/lib/colorBuckets";
 import { cn } from "@/lib/utils";
 import {
+  CheckIcon,
+  CompassIcon,
   EraserIcon,
   LayoutGridIcon,
   ListFilterIcon,
@@ -29,9 +31,10 @@ import {
   SearchIcon,
   SparklesIcon,
   SquareIcon,
+  UsersIcon,
   XIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BrowseCategoryOption, BrowseTagOption } from "./browse-types";
 import { useBrowseFilterParams } from "./useBrowseFilters";
 
@@ -97,6 +100,8 @@ const BrowseFilters = ({
     setOrientation,
     featured,
     setFeatured,
+    feed,
+    setFeed,
     selectedColors,
     setSelectedColors,
     sort,
@@ -107,6 +112,7 @@ const BrowseFilters = ({
     hasFilters,
   } = useBrowseFilterParams();
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState(query);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [prevQuery, setPrevQuery] = useState(query);
@@ -124,6 +130,32 @@ const BrowseFilters = ({
     }, 350);
     return () => clearTimeout(timer);
   }, [input, query, change, setQuery]);
+
+  // Keyboard shortcut: "/" or Cmd/Ctrl+K focuses the search bar when idle.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isEditable =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if (event.key === "/" && !isEditable && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const tagNames = useMemo(
     () => new Map(tagOptions.map((tag) => [tag.slug, tag.name])),
@@ -182,15 +214,30 @@ const BrowseFilters = ({
     <div className="grid gap-3">
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
-          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" />
           <Input
+            ref={searchInputRef}
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Search title, description, or tag"
+            placeholder="Search title, description, creator, or tag (press /)"
             autoComplete="off"
             aria-label="Search wallpapers"
-            className="rounded-full pl-9"
+            className="h-10 rounded-full pr-9 pl-10"
           />
+          {input.length > 0 ?
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Clear search"
+              onClick={() => {
+                setInput("");
+                void change(setQuery, "");
+              }}
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full">
+              <XIcon aria-hidden="true" />
+            </Button>
+          : null}
         </div>
         <Select
           value={sort}
@@ -198,7 +245,7 @@ const BrowseFilters = ({
           onValueChange={(value) => change(setSort, value ?? "newest")}>
           <SelectTrigger
             aria-label="Sort wallpapers"
-            className="w-full sm:w-48">
+            className="h-10 w-full rounded-full sm:w-48">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>
@@ -216,7 +263,7 @@ const BrowseFilters = ({
           variant={hasFilters ? "secondary" : "outline"}
           aria-expanded={sheetOpen}
           onClick={() => setSheetOpen(true)}
-          className="justify-between sm:w-40">
+          className="h-10 justify-between rounded-full sm:w-40">
           <span className="flex items-center gap-2">
             <ListFilterIcon
               data-icon="inline-start"
@@ -231,12 +278,74 @@ const BrowseFilters = ({
           : null}
         </Button>
       </div>
+
+      {/* Pinterest-style horizontal pill bar: All / Following + quick categories */}
+      <div
+        role="region"
+        aria-label="Quick filters"
+        className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <Button
+          type="button"
+          size="xs"
+          variant={feed === "all" && category === "all" ? "default" : "outline"}
+          onClick={() => {
+            void change(setFeed, "all");
+            void change(setCategory, "all");
+          }}
+          className="shrink-0 rounded-full px-3">
+          <CompassIcon data-icon="inline-start" />
+          All
+        </Button>
+        <Button
+          type="button"
+          size="xs"
+          variant={feed === "following" ? "default" : "outline"}
+          onClick={() =>
+            change(setFeed, feed === "following" ? "all" : "following")
+          }
+          className="shrink-0 rounded-full px-3">
+          <UsersIcon data-icon="inline-start" />
+          Following
+        </Button>
+        <span
+          aria-hidden="true"
+          className="bg-border mx-1 h-4 w-px shrink-0"
+        />
+        {categories.map((item) => {
+          const active = category === item.slug;
+          return (
+            <Button
+              key={item.id}
+              type="button"
+              size="xs"
+              variant={active ? "secondary" : "ghost"}
+              aria-pressed={active}
+              onClick={() => change(setCategory, active ? "all" : item.slug)}
+              className="shrink-0 rounded-full px-3">
+              <span>{item.name}</span>
+              <span className="text-muted-foreground tabular-nums">
+                {item.count}
+              </span>
+            </Button>
+          );
+        })}
+      </div>
+
       {hasFilters ?
         <div className="flex flex-wrap items-center gap-1.5">
           {query.trim() !== "" ?
             <Chip
               label={`"${query.trim()}"`}
-              onClear={() => change(setQuery, "")}
+              onClear={() => {
+                setInput("");
+                change(setQuery, "");
+              }}
+            />
+          : null}
+          {feed === "following" ?
+            <Chip
+              label="Following"
+              onClear={() => change(setFeed, "all")}
             />
           : null}
           {category !== "all" ?
@@ -248,7 +357,7 @@ const BrowseFilters = ({
           {selectedTags.map((slug) => (
             <Chip
               key={slug}
-              label={tagNames.get(slug) ?? slug}
+              label={`#${tagNames.get(slug) ?? slug}`}
               onClear={() => clearTag(slug)}
             />
           ))}
@@ -278,13 +387,23 @@ const BrowseFilters = ({
               />
             );
           })}
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={clearAll}
+            className="text-muted-foreground hover:text-foreground">
+            <EraserIcon data-icon="inline-start" />
+            Reset all
+          </Button>
         </div>
       : null}
       <p
         aria-live="polite"
-        className="text-muted-foreground text-xs">
+        className="text-muted-foreground text-xs tabular-nums">
         {`${total.toLocaleString()} ${total === 1 ? "result" : "results"}`}
       </p>
+
       <Sheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}>
@@ -358,9 +477,9 @@ const BrowseFilters = ({
                     size="sm"
                     aria-pressed={orientation === value}
                     onClick={() => change(setOrientation, value)}
-                    className="h-auto flex-col gap-1 px-1 py-2">
+                    className="h-auto flex-col items-center justify-center gap-1 px-1 py-2">
                     <Icon
-                      data-icon="inline-start"
+                      aria-hidden="true"
                       className="size-4"
                     />
                     <span className="text-caption">{label}</span>
@@ -433,7 +552,10 @@ const BrowseFilters = ({
               />
               Clear all
             </Button>
-            <SheetClose render={<Button className="flex-1" />}>Done</SheetClose>
+            <SheetClose render={<Button className="flex-1" />}>
+              <CheckIcon data-icon="inline-start" />
+              Done
+            </SheetClose>
           </SheetFooter>
         </SheetContent>
       </Sheet>

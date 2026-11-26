@@ -1,11 +1,12 @@
 "use client";
 
-import {
-  browseParsers,
-  browseFeaturedValues,
-  browseOrientationValues,
-} from "./browse-search-params";
 import { useQueryState } from "nuqs";
+import {
+  browseFeaturedValues,
+  browseFeedValues,
+  browseOrientationValues,
+  browseParsers,
+} from "./browse-search-params";
 
 export function useBrowseFilterParams() {
   const [query, setQuery] = useQueryState("q", browseParsers.q);
@@ -25,6 +26,7 @@ export function useBrowseFilterParams() {
     "featured",
     browseParsers.featured,
   );
+  const [feed, setFeed] = useQueryState("feed", browseParsers.feed);
   const [selectedColors, setSelectedColors] = useQueryState(
     "colors",
     browseParsers.colors,
@@ -39,6 +41,7 @@ export function useBrowseFilterParams() {
     selectedTags.length +
     (orientation !== "any" ? 1 : 0) +
     (featured === "featured" ? 1 : 0) +
+    (feed === "following" ? 1 : 0) +
     selectedColors.length;
   const hasFilters = activeCount > 0;
 
@@ -53,6 +56,7 @@ export function useBrowseFilterParams() {
     void setSelectedTags(null);
     void setOrientation("any");
     void setFeatured("any");
+    void setFeed("all");
     void setSelectedColors(null);
     void setPage(1);
   };
@@ -68,6 +72,8 @@ export function useBrowseFilterParams() {
     setOrientation,
     featured,
     setFeatured,
+    feed,
+    setFeed,
     selectedColors,
     setSelectedColors,
     sort,
@@ -79,5 +85,6 @@ export function useBrowseFilterParams() {
     hasFilters,
     orientationValues: browseOrientationValues,
     featuredValues: browseFeaturedValues,
+    feedValues: browseFeedValues,
   };
 }

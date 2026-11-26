@@ -1,11 +1,10 @@
 import UserUploadsTrendChart from "@/components/Dashboard/UserUploadsTrendChart";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
-import { headers } from "next/headers";
 import { buildUploadTrend, TREND_DAYS } from "./dashboard-utils";
 
 const DashboardUploadsTrend = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
 
   if (!session?.user) {
     return null;

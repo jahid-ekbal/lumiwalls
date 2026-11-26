@@ -48,25 +48,30 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  role       String?
-  banned     Boolean?  @default(false)
-  banReason  String?
-  banExpires DateTime?
+  role               String?
+  banned             Boolean?  @default(false)
+  banReason          String?
+  banExpires         DateTime?
+  mustChangePassword Boolean   @default(false)
 
   bio       String?
   location  String?
   handle    String?  @unique
   bannerUrl String?
 
-  wallpapers        Wallpaper[]       @relation("UploaderWallpapers")
-  moderationReviews ModerationQueue[] @relation("ModerationReviewer")
-  reportsMade       Report[]          @relation("ReportReporter")
-  reportsReviewed   Report[]          @relation("ReportReviewer")
-  collectionsCurated Collection[]     @relation("CollectionCurator")
+  wallpapers         Wallpaper[]         @relation("UploaderWallpapers")
+  moderationReviews  ModerationQueue[]   @relation("ModerationReviewer")
+  reportsMade        Report[]            @relation("ReportReporter")
+  reportsReviewed    Report[]            @relation("ReportReviewer")
+  collectionsCurated Collection[]        @relation("CollectionCurator")
+  collectionsOwned   Collection[]        @relation("CollectionOwner")
   placementsCurated  FeaturedPlacement[] @relation("PlacementCurator")
-  favorites         Favorite[]          @relation("UserFavorites")
-  followers         Follow[]            @relation("FollowFollowing")
-  following         Follow[]            @relation("FollowFollower")
+  favorites          Favorite[]          @relation("UserFavorites")
+  followers          Follow[]            @relation("FollowFollowing")
+  following          Follow[]            @relation("FollowFollower")
+  viewLogs           ViewLog[]
+  downloadLogs       DownloadLog[]
+  auditLogs          AdminAuditLog[]     @relation("AuditActor")
 
   @@unique([email])
   @@map("user")
@@ -123,14 +128,14 @@ model Verification {
 }
 
 model Category {
-  id          String      @id @default(cuid())
-  name        String      @unique
-  slug        String      @unique
-  icon        String?
-  color       String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  wallpapers  Wallpaper[]
+  id         String      @id @default(cuid())
+  name       String      @unique
+  slug       String      @unique
+  icon       String?
+  color      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  wallpapers Wallpaper[]
 
   @@index([slug])
   @@map("category")
@@ -144,7 +149,7 @@ model Tag {
   icon        String?
   color       String?
   createdAt   DateTime       @default(now())
-  wallpapers WallpaperTag[]
+  wallpapers  WallpaperTag[]
 
   @@index([slug])
   @@map("tag")
@@ -189,9 +194,8 @@ model Wallpaper {
   featured    Boolean @default(false)
   editorsPick Boolean @default(false)
 
-  downloadCount Int   @default(0)
-  viewCount     Int   @default(0)
-  avgRating     Float @default(0)
+  downloadCount Int @default(0)
+  viewCount     Int @default(0)
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -200,11 +204,13 @@ model Wallpaper {
   uploader   User     @relation("UploaderWallpapers", fields: [uploaderId], references: [id], onDelete: Cascade)
 
   tags            WallpaperTag[]
-  favorites       Favorite[]       @relation("WallpaperFavorites")
+  favorites       Favorite[]          @relation("WallpaperFavorites")
   moderationQueue ModerationQueue?
   reports         Report[]
   collectionItems CollectionItem[]
   placements      FeaturedPlacement[]
+  viewLogs        ViewLog[]
+  downloadLogs    DownloadLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -290,21 +296,27 @@ model Follow {
 }
 
 model Collection {
-  id          String           @id @default(cuid())
-  title       String           @db.VarChar(120)
-  slug        String           @unique
-  description String?          @db.Text
-  coverUrl    String?
-  active      Boolean          @default(true)
-  sortOrder   Int              @default(0)
-  curatorId   String?
-  curator     User?            @relation("CollectionCurator", fields: [curatorId], references: [id], onDelete: SetNull)
-  items       CollectionItem[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id                String           @id @default(cuid())
+  title             String           @db.VarChar(120)
+  slug              String           @unique
+  description       String?          @db.Text
+  coverUrl          String?
+  active            Boolean          @default(true)
+  isCurated         Boolean          @default(false)
+  isPublicToMembers Boolean          @default(true)
+  sortOrder         Int              @default(0)
+  curatorId         String?
+  curator           User?            @relation("CollectionCurator", fields: [curatorId], references: [id], onDelete: SetNull)
+  ownerId           String?
+  owner             User?            @relation("CollectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  items             CollectionItem[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@index([slug])
   @@index([active, sortOrder])
+  @@index([ownerId, updatedAt(sort: Desc)])
+  @@index([isCurated, active, sortOrder])
   @@map("collection")
 }
 
@@ -324,21 +336,77 @@ model CollectionItem {
 }
 
 model FeaturedPlacement {
-  id          String            @id @default(cuid())
+  id          String    @id @default(cuid())
   wallpaperId String
-  wallpaper   Wallpaper         @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  wallpaper   Wallpaper @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
   placement   Placement
   startAt     DateTime
   endAt       DateTime?
-  priority    Int               @default(0)
-  active      Boolean           @default(true)
+  priority    Int       @default(0)
+  active      Boolean   @default(true)
   curatorId   String?
-  curator     User?             @relation("PlacementCurator", fields: [curatorId], references: [id], onDelete: SetNull)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  curator     User?     @relation("PlacementCurator", fields: [curatorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([placement, active, startAt, endAt])
   @@index([wallpaperId])
   @@index([active, priority])
   @@map("featured_placement")
+}
+
+model ViewLog {
+  id          String    @id @default(cuid())
+  wallpaperId String
+  wallpaper   Wallpaper @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt    DateTime  @default(now())
+
+  @@index([wallpaperId, viewedAt(sort: Desc)])
+  @@index([userId, viewedAt(sort: Desc)])
+  @@index([viewedAt(sort: Desc)])
+  @@map("view_log")
+}
+
+model DownloadLog {
+  id           String    @id @default(cuid())
+  wallpaperId  String
+  wallpaper    Wallpaper @relation(fields: [wallpaperId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant      String    @default("original") @db.VarChar(16)
+  downloadedAt DateTime  @default(now())
+
+  @@index([userId, downloadedAt(sort: Desc)])
+  @@index([wallpaperId, downloadedAt(sort: Desc)])
+  @@index([downloadedAt(sort: Desc)])
+  @@map("download_log")
+}
+
+model RateLimit {
+  key     String   @id @db.VarChar(160)
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
+  @@map("rate_limit")
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(64)
+  targetType String   @db.VarChar(32)
+  targetId   String   @db.VarChar(128)
+  summary    String   @db.Text
+  metadata   Json?
+  ipAddress  String?  @db.VarChar(64)
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@map("admin_audit_log")
 }

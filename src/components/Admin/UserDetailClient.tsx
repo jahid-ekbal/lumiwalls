@@ -4,6 +4,11 @@ import EmptyState from "@/components/UI/EmptyState";
 import PageHeader from "@/components/UI/PageHeader";
 import StatusBadge, { deriveWallpaperStatus } from "@/components/UI/StatusBadge";
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/shadcnui/alert";
+import {
   Avatar,
   AvatarFallback,
   AvatarImage,
@@ -21,10 +26,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/shadcnui/dialog";
-import { Field, FieldLabel } from "@/components/shadcnui/field";
+import { Field, FieldError, FieldLabel } from "@/components/shadcnui/field";
 import { Input } from "@/components/shadcnui/input";
 import {
   Select,
@@ -41,18 +47,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shadcnui/table";
+import { formatCount, initialsOf } from "@/lib/format";
+import { toImagePath } from "@/lib/imageUrl";
 import { reviewWallpaper, setBan } from "@/server/actions/moderation";
 import {
+  adminResetUserPassword,
   deleteUser,
   setRole,
   setWallpaperVisibility,
 } from "@/server/actions/users";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Loader2Icon } from "lucide-react";
+import {
+  BanIcon,
+  CheckIcon,
+  CopyIcon,
+  EyeIcon,
+  EyeOffIcon,
+  KeyRoundIcon,
+  Loader2Icon,
+  ShieldCheckIcon,
+  Trash2Icon,
+  UserCogIcon,
+} from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
+import z from "zod";
 import { adminActionErrorMessage } from "./adminActionErrors";
 
 type DetailUser = {
@@ -65,6 +88,7 @@ type DetailUser = {
   banReason: string | null;
   banExpires: string | null;
   emailVerified: boolean;
+  mustChangePassword: boolean;
   createdAt: string;
   wallpaperCount: number;
   pendingCount: number;
@@ -81,6 +105,7 @@ type DetailWallpaper = {
   isApproved: boolean;
   createdAt: string;
   queueStatus: string | null;
+  reviewNotes: string | null;
 };
 
 type Props = {
@@ -90,17 +115,14 @@ type Props = {
   isProtected: boolean;
 };
 
-const initials = (name: string, email: string) => {
-  const source = name.trim() || email.trim();
-  if (!source) {
-    return "?";
-  }
-  const parts = source.split(/\s+/);
-  if (parts.length > 1) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-};
+const banFormSchema = z.object({
+  banReason: z.string().trim().max(500),
+  banExpiry: z.enum(["permanent", "1", "7", "30"]),
+});
+
+const deleteConfirmSchema = z.object({
+  emailInput: z.string().trim().min(1, { error: "Type the user email" }),
+});
 
 const UserDetailClient = ({
   user,
@@ -111,33 +133,46 @@ const UserDetailClient = ({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [banOpen, setBanOpen] = useState(false);
-  const [banReason, setBanReason] = useState("");
-  const [banExpiry, setBanExpiry] = useState("permanent");
   const [roleOpen, setRoleOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [issuedTempPassword, setIssuedTempPassword] = useState<string | null>(
+    null,
+  );
 
   const isSelf = user.id === currentUserId;
   const canChangeRole = !isSelf && !isProtected;
   const canBan = !isSelf && !isProtected && user.role !== "admin";
   const canDelete = !isSelf && !isProtected;
-  const hasActions = canChangeRole || canBan || canDelete;
+  const canResetPassword = !isSelf && !isProtected;
+  const hasActions =
+    canChangeRole || canBan || canDelete || canResetPassword;
 
-  const submitBan = async () => {
+  const banForm = useForm({
+    resolver: zodResolver(banFormSchema),
+    defaultValues: { banReason: "", banExpiry: "permanent" as const },
+  });
+
+  const deleteForm = useForm({
+    resolver: zodResolver(deleteConfirmSchema),
+    defaultValues: { emailInput: "" },
+  });
+
+  const submitBan = async (values: z.infer<typeof banFormSchema>) => {
     const nextBanned = !user.banned;
-    if (nextBanned && !banReason.trim()) {
-      toast.error("A ban reason is required");
+    if (nextBanned && !values.banReason.trim()) {
+      banForm.setError("banReason", { message: "A ban reason is required" });
       return;
     }
     const expires =
-      nextBanned && banExpiry !== "permanent" ?
-        new Date(Date.now() + Number(banExpiry) * 24 * 60 * 60 * 1000)
+      nextBanned && values.banExpiry !== "permanent" ?
+        new Date(Date.now() + Number(values.banExpiry) * 24 * 60 * 60 * 1000)
       : undefined;
     setBusy("ban");
     const result = await setBan({
       userId: user.id,
       banned: nextBanned,
-      banReason,
+      banReason: values.banReason,
       banExpires: expires,
     });
     setBusy(null);
@@ -147,7 +182,7 @@ const UserDetailClient = ({
     }
     toast.success(nextBanned ? "User banned and signed out" : "User unbanned");
     setBanOpen(false);
-    setBanReason("");
+    banForm.reset();
     router.refresh();
   };
 
@@ -167,9 +202,13 @@ const UserDetailClient = ({
     router.refresh();
   };
 
-  const submitDelete = async () => {
-    if (deleteConfirm.trim().toLowerCase() !== user.email.toLowerCase()) {
-      toast.error("Type the user email to confirm deletion");
+  const submitDelete = async (values: z.infer<typeof deleteConfirmSchema>) => {
+    if (
+      values.emailInput.trim().toLowerCase() !== user.email.toLowerCase()
+    ) {
+      deleteForm.setError("emailInput", {
+        message: "Type the exact user email to confirm deletion",
+      });
       return;
     }
     setBusy("delete");
@@ -181,6 +220,19 @@ const UserDetailClient = ({
     }
     toast.success("User permanently deleted");
     router.replace("/admin/users" as Route);
+    router.refresh();
+  };
+
+  const submitPasswordReset = async () => {
+    setBusy("reset-password");
+    const result = await adminResetUserPassword({ userId: user.id });
+    setBusy(null);
+    if (!result.success) {
+      toast.error(adminActionErrorMessage(result.error));
+      return;
+    }
+    setIssuedTempPassword(result.tempPassword);
+    toast.success("Temporary password generated and active sessions revoked");
     router.refresh();
   };
 
@@ -212,6 +264,8 @@ const UserDetailClient = ({
     router.refresh();
   };
 
+  const avatarSrc = toImagePath(user.image);
+
   return (
     <div className="grid gap-6">
       <PageHeader
@@ -231,15 +285,17 @@ const UserDetailClient = ({
         <CardContent className="grid gap-4">
           <div className="flex items-center gap-3">
             <Avatar size="sm">
-              {user.image ?
+              {avatarSrc ?
                 <AvatarImage
-                  src={user.image}
+                  src={avatarSrc}
                   alt={user.name}
                 />
               : null}
-              <AvatarFallback>{initials(user.name, user.email)}</AvatarFallback>
+              <AvatarFallback>
+                {initialsOf(user.name, user.email)}
+              </AvatarFallback>
             </Avatar>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               <Badge variant={user.role === "admin" ? "default" : "secondary"}>
                 {user.role}
               </Badge>
@@ -247,6 +303,9 @@ const UserDetailClient = ({
               <Badge variant="outline">
                 {user.emailVerified ? "Verified" : "Unverified"}
               </Badge>
+              {user.mustChangePassword ?
+                <Badge variant="secondary">Password rotation pending</Badge>
+              : null}
               {isSelf ?
                 <Badge variant="outline">You</Badge>
               : null}
@@ -255,22 +314,30 @@ const UserDetailClient = ({
               : null}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div>
               <p className="text-muted-foreground text-xs">Uploads</p>
-              <p className="font-medium">{user.wallpaperCount}</p>
+              <p className="font-medium tabular-nums">
+                {formatCount(user.wallpaperCount)}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Pending</p>
-              <p className="font-medium">{user.pendingCount}</p>
+              <p className="font-medium tabular-nums">
+                {formatCount(user.pendingCount)}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Reports made</p>
-              <p className="font-medium">{user.reportsMade}</p>
+              <p className="font-medium tabular-nums">
+                {formatCount(user.reportsMade)}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Reports against</p>
-              <p className="font-medium">{user.reportsAgainst}</p>
+              <p className="font-medium tabular-nums">
+                {formatCount(user.reportsAgainst)}
+              </p>
             </div>
           </div>
           {user.banReason ?
@@ -281,26 +348,38 @@ const UserDetailClient = ({
           {isSelf ?
             <p className="text-muted-foreground text-sm">
               This is your account. You cannot change your own role, ban
-              yourself, or delete yourself.
+              yourself, reset your password here, or delete yourself.
             </p>
           : null}
           {isProtected ?
             <p className="text-muted-foreground text-sm">
               This is the primary admin account. It cannot be demoted, banned,
-              or deleted.
+              reset, or deleted.
             </p>
           : null}
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-2">
             {canBan ?
               <Button
                 size="sm"
                 variant={user.banned ? "outline" : "destructive"}
                 onClick={() => {
-                  setBanReason("");
-                  setBanExpiry("permanent");
+                  banForm.reset({ banReason: "", banExpiry: "permanent" });
                   setBanOpen(true);
                 }}>
-                {user.banned ? "Unban" : "Ban"}
+                <BanIcon data-icon="inline-start" />
+                {user.banned ? "Unban" : "Ban user"}
+              </Button>
+            : null}
+            {canResetPassword ?
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setIssuedTempPassword(null);
+                  setResetOpen(true);
+                }}>
+                <KeyRoundIcon data-icon="inline-start" />
+                Reset password
               </Button>
             : null}
             {canChangeRole ?
@@ -308,18 +387,20 @@ const UserDetailClient = ({
                 size="sm"
                 variant="outline"
                 onClick={() => setRoleOpen(true)}>
-                {user.role === "admin" ? "Demote" : "Promote"}
+                <UserCogIcon data-icon="inline-start" />
+                {user.role === "admin" ? "Demote to user" : "Promote to admin"}
               </Button>
             : null}
             {canDelete ?
               <Button
                 size="sm"
-                variant="ghost"
+                variant="destructive"
                 onClick={() => {
-                  setDeleteConfirm("");
+                  deleteForm.reset({ emailInput: "" });
                   setDeleteOpen(true);
                 }}>
-                Delete
+                <Trash2Icon data-icon="inline-start" />
+                Delete user
               </Button>
             : null}
             {hasActions ? null : (
@@ -334,7 +415,7 @@ const UserDetailClient = ({
         <CardHeader>
           <CardTitle>Recent uploads</CardTitle>
           <CardDescription>
-            Latest 10 wallpapers with moderation shortcuts
+            Latest 10 wallpapers with moderation notes and visibility controls
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -345,10 +426,10 @@ const UserDetailClient = ({
               description="This account has not uploaded any wallpapers yet."
             />
           : <Table>
-              <TableHeader>
+              <TableHeader className="bg-card sticky top-0 z-10">
                 <TableRow>
                   <TableHead>Wallpaper</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Status & Notes</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -359,46 +440,58 @@ const UserDetailClient = ({
                     isApproved: item.isApproved,
                     moderationStatus: item.queueStatus,
                   });
+                  const thumbSrc = toImagePath(item.thumb400Url);
                   return (
                     <TableRow key={item.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          {item.thumb400Url ?
+                          {thumbSrc ?
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={item.thumb400Url}
+                              src={thumbSrc}
                               alt={item.title}
                               className="size-10 shrink-0 rounded-inset object-cover"
                               loading="lazy"
                             />
                           : <div className="bg-muted size-10 shrink-0 rounded-inset" />
                           }
-                          <div>
-                            <p className="font-medium">{item.title}</p>
-                            <p className="text-muted-foreground text-xs">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{item.title}</p>
+                            <p className="text-muted-foreground truncate text-xs">
                               {item.slug}
                             </p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          <StatusBadge status={status} />
-                          <StatusBadge
-                            status={item.isPublic ? "PUBLIC" : "PRIVATE"}
-                          />
+                        <div className="grid gap-1">
+                          <div className="flex flex-wrap gap-1">
+                            <StatusBadge status={status} />
+                            <StatusBadge
+                              status={item.isPublic ? "PUBLIC" : "PRIVATE"}
+                            />
+                          </div>
+                          {item.reviewNotes ?
+                            <p className="text-caption text-muted-foreground line-clamp-2 max-w-md">
+                              {item.reviewNotes}
+                            </p>
+                          : null}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {!item.isApproved ?
                             <Button
                               size="sm"
                               disabled={itemBusy}
                               onClick={() => void approveWallpaper(item.id)}>
                               {itemBusy ?
-                                <Loader2Icon className="animate-spin" />
-                              : "Approve"}
+                                <Loader2Icon
+                                  data-icon="inline-start"
+                                  className="animate-spin"
+                                />
+                              : <ShieldCheckIcon data-icon="inline-start" />}
+                              Approve
                             </Button>
                           : null}
                           <Button
@@ -408,6 +501,9 @@ const UserDetailClient = ({
                             onClick={() =>
                               void toggleVisibility(item.id, !item.isPublic)
                             }>
+                            {item.isPublic ?
+                              <EyeOffIcon data-icon="inline-start" />
+                            : <EyeIcon data-icon="inline-start" />}
                             {item.isPublic ? "Hide" : "Unhide"}
                           </Button>
                         </div>
@@ -420,12 +516,96 @@ const UserDetailClient = ({
           }
         </CardContent>
       </Card>
+
+      <Dialog
+        open={resetOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResetOpen(false);
+            setIssuedTempPassword(null);
+          }
+        }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Issue temporary password</DialogTitle>
+            <DialogDescription>
+              Generates a one-time 20-character password for {user.email}, signs
+              out all active sessions, and requires immediate password rotation
+              on next sign-in.
+            </DialogDescription>
+          </DialogHeader>
+          {issuedTempPassword ?
+            <div className="grid gap-4">
+              <Alert>
+                <KeyRoundIcon aria-hidden="true" />
+                <AlertTitle>Copy this password now</AlertTitle>
+                <AlertDescription>
+                  It will not be shown again once you close this dialog.
+                </AlertDescription>
+              </Alert>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly={true}
+                  value={issuedTempPassword}
+                  className="font-mono text-sm"
+                  aria-label="Generated temporary password"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(issuedTempPassword);
+                      toast.success("Copied temporary password");
+                    } catch {
+                      toast.error("Copy failed");
+                    }
+                  }}>
+                  <CopyIcon data-icon="inline-start" />
+                  Copy
+                </Button>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setResetOpen(false);
+                    setIssuedTempPassword(null);
+                  }}>
+                  <CheckIcon data-icon="inline-start" />
+                  Done
+                </Button>
+              </DialogFooter>
+            </div>
+          : <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setResetOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={busy === "reset-password"}
+                onClick={() => void submitPasswordReset()}>
+                {busy === "reset-password" ?
+                  <Loader2Icon
+                    data-icon="inline-start"
+                    className="animate-spin"
+                  />
+                : <KeyRoundIcon data-icon="inline-start" />}
+                Generate temporary password
+              </Button>
+            </DialogFooter>
+          }
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={banOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            setBanOpen(false);
-          }
+          if (!open) setBanOpen(false);
         }}>
         <DialogContent>
           <DialogHeader>
@@ -434,53 +614,74 @@ const UserDetailClient = ({
               {`${user.name} (${user.email}). Banning signs the user out immediately.`}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
-            <Field>
-              <FieldLabel htmlFor="detail-ban-reason">Ban reason</FieldLabel>
-              <Input
-                id="detail-ban-reason"
-                value={banReason}
-                onChange={(event) => setBanReason(event.target.value)}
-                placeholder="Required when banning"
-                autoComplete="off"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="detail-ban-expiry">Expiry</FieldLabel>
-              <Select
-                value={banExpiry}
-                items={[
-                  { value: "permanent", label: "Permanent" },
-                  { value: "1", label: "1 day" },
-                  { value: "7", label: "7 days" },
-                  { value: "30", label: "30 days" },
-                ]}
-                onValueChange={(value) => setBanExpiry(value ?? "permanent")}>
-                <SelectTrigger id="detail-ban-expiry">
-                  <SelectValue placeholder="Select expiry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="permanent">Permanent</SelectItem>
-                  <SelectItem value="1">1 day</SelectItem>
-                  <SelectItem value="7">7 days</SelectItem>
-                  <SelectItem value="30">30 days</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+          <form
+            onSubmit={banForm.handleSubmit(submitBan)}
+            className="grid gap-4"
+            noValidate>
+            <Controller
+              name="banReason"
+              control={banForm.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="detail-ban-reason">Ban reason</FieldLabel>
+                  <Input
+                    {...field}
+                    id="detail-ban-reason"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Required when banning"
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid ?
+                    <FieldError errors={[fieldState.error]} />
+                  : null}
+                </Field>
+              )}
+            />
+            <Controller
+              name="banExpiry"
+              control={banForm.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor="detail-ban-expiry">Expiry</FieldLabel>
+                  <Select
+                    value={field.value}
+                    items={[
+                      { value: "permanent", label: "Permanent" },
+                      { value: "1", label: "1 day" },
+                      { value: "7", label: "7 days" },
+                      { value: "30", label: "30 days" },
+                    ]}
+                    onValueChange={(value) =>
+                      field.onChange(value ?? "permanent")
+                    }>
+                    <SelectTrigger id="detail-ban-expiry">
+                      <SelectValue placeholder="Select expiry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="permanent">Permanent</SelectItem>
+                      <SelectItem value="1">1 day</SelectItem>
+                      <SelectItem value="7">7 days</SelectItem>
+                      <SelectItem value="30">30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            />
             <Button
-              onClick={() => void submitBan()}
+              type="submit"
+              disabled={busy === "ban"}
               variant={user.banned ? "outline" : "destructive"}>
+              <BanIcon data-icon="inline-start" />
               {user.banned ? "Unban" : "Ban"}
             </Button>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
+
       <Dialog
         open={roleOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            setRoleOpen(false);
-          }
+          if (!open) setRoleOpen(false);
         }}>
         <DialogContent>
           <DialogHeader>
@@ -491,15 +692,20 @@ const UserDetailClient = ({
               {`${user.name} (${user.email})`}
             </DialogDescription>
           </DialogHeader>
-          <Button onClick={() => void submitRole()}>Confirm</Button>
+          <Button
+            type="button"
+            disabled={busy === "role"}
+            onClick={() => void submitRole()}>
+            <CheckIcon data-icon="inline-start" />
+            Confirm
+          </Button>
         </DialogContent>
       </Dialog>
+
       <Dialog
         open={deleteOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            setDeleteOpen(false);
-          }
+          if (!open) setDeleteOpen(false);
         }}>
         <DialogContent>
           <DialogHeader>
@@ -508,25 +714,39 @@ const UserDetailClient = ({
               {`Deletes ${user.name} plus ${user.wallpaperCount} wallpapers and S3 files. Type the email to confirm.`}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
-            <Field>
-              <FieldLabel htmlFor="detail-delete-confirm">
-                User email
-              </FieldLabel>
-              <Input
-                id="detail-delete-confirm"
-                value={deleteConfirm}
-                onChange={(event) => setDeleteConfirm(event.target.value)}
-                placeholder={user.email}
-                autoComplete="off"
-              />
-            </Field>
+          <form
+            onSubmit={deleteForm.handleSubmit(submitDelete)}
+            className="grid gap-4"
+            noValidate>
+            <Controller
+              name="emailInput"
+              control={deleteForm.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="detail-delete-confirm">
+                    User email
+                  </FieldLabel>
+                  <Input
+                    {...field}
+                    id="detail-delete-confirm"
+                    aria-invalid={fieldState.invalid}
+                    placeholder={user.email}
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid ?
+                    <FieldError errors={[fieldState.error]} />
+                  : null}
+                </Field>
+              )}
+            />
             <Button
+              type="submit"
               variant="destructive"
-              onClick={() => void submitDelete()}>
+              disabled={busy === "delete"}>
+              <Trash2Icon data-icon="inline-start" />
               Delete permanently
             </Button>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

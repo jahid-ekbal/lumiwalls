@@ -1,12 +1,17 @@
 import StatCard from "@/components/UI/StatCard";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
-import { DownloadIcon, EyeIcon, HeartIcon, ImagesIcon } from "lucide-react";
+import {
+  ClockIcon,
+  DownloadIcon,
+  EyeIcon,
+  HeartIcon,
+  ImagesIcon,
+} from "lucide-react";
 import type { Route } from "next";
-import { headers } from "next/headers";
 
 const DashboardStats = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
 
   if (!session?.user) {
     return null;
@@ -33,7 +38,12 @@ const DashboardStats = async () => {
       where: { uploaderId: userId },
       _sum: { downloadCount: true },
     }),
-    prisma.favorite.count({ where: { userId } }),
+    prisma.favorite.count({
+      where: {
+        userId,
+        wallpaper: { isApproved: true, isPublic: true },
+      },
+    }),
   ]);
 
   const stats = [
@@ -42,13 +52,13 @@ const DashboardStats = async () => {
       value: totalWallpapers,
       hint: "Wallpapers you uploaded",
       icon: ImagesIcon,
-      href: "/browse" as Route,
+      href: "/upload" as Route,
     },
     {
       label: "Pending approval",
       value: pendingWallpapers,
       hint: "Awaiting moderation before Browse",
-      icon: ImagesIcon,
+      icon: ClockIcon,
       href: "/upload?status=pending" as Route,
     },
     {
@@ -70,12 +80,12 @@ const DashboardStats = async () => {
       value: favoriteCount,
       hint: "Wallpapers you saved",
       icon: HeartIcon,
-      href: "/dashboard#favorites" as Route,
+      href: "/profile?tab=favorites" as Route,
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {stats.map((stat) => (
         <StatCard
           key={stat.label}

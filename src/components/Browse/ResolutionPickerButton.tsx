@@ -9,8 +9,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/shadcnui/dropdown-menu";
+import { formatBytes } from "@/lib/format";
 import { DownloadIcon, Loader2Icon } from "lucide-react";
-import { useDownloadWallpaper } from "./useDownloadWallpaper";
+import {
+  type DownloadVariant,
+  useDownloadWallpaper,
+} from "./useDownloadWallpaper";
 
 export type WallpaperUrlSet = {
   thumb400Url: string | null;
@@ -21,6 +25,11 @@ export type WallpaperUrlSet = {
 
 type ResolutionPickerButtonProps = {
   wallpaperId: string;
+  slug?: string;
+  width?: number | null;
+  height?: number | null;
+  fileSize?: number | null;
+  format?: string | null;
   urls: WallpaperUrlSet;
   downloadCount: number;
   onUpdated?: (downloadCount: number | null) => void;
@@ -30,6 +39,11 @@ type ResolutionPickerButtonProps = {
 
 const ResolutionPickerButton = ({
   wallpaperId,
+  slug,
+  width,
+  height,
+  fileSize,
+  format,
   urls,
   downloadCount,
   onUpdated,
@@ -38,21 +52,40 @@ const ResolutionPickerButton = ({
 }: ResolutionPickerButtonProps) => {
   const { busy, trigger } = useDownloadWallpaper({
     wallpaperId,
+    slug,
     downloadCount,
     onUpdated,
   });
 
-  const choices = [
+  const originalMeta = [
+    width && height ? `${width}x${height}` : null,
+    format ? format.toUpperCase() : null,
+    fileSize ? formatBytes(fileSize) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const choices: { label: string; url: string; variant: DownloadVariant }[] = [
     urls.thumb400Url ?
-      { label: "Small, 400px wide", url: urls.thumb400Url }
+      { label: "Small (400px WebP)", url: urls.thumb400Url, variant: "400" }
     : null,
     urls.thumb800Url ?
-      { label: "Medium, 800px wide", url: urls.thumb800Url }
+      { label: "Medium (800px WebP)", url: urls.thumb800Url, variant: "800" }
     : null,
     urls.thumb1920Url ?
-      { label: "Large, 1920px wide", url: urls.thumb1920Url }
+      {
+        label: "Large (1920px WebP)",
+        url: urls.thumb1920Url,
+        variant: "1920",
+      }
     : null,
-    urls.originalUrl ? { label: "Original", url: urls.originalUrl } : null,
+    urls.originalUrl ?
+      {
+        label: originalMeta ? `Original (${originalMeta})` : "Original file",
+        url: urls.originalUrl,
+        variant: "original",
+      }
+    : null,
   ].filter((choice) => choice !== null);
 
   return (
@@ -72,13 +105,15 @@ const ResolutionPickerButton = ({
         }
         Download
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent
+        align="start"
+        className="w-60">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Choose resolution</DropdownMenuLabel>
           {choices.map((choice) => (
             <DropdownMenuItem
-              key={choice.label}
-              onClick={() => void trigger(choice.url)}>
+              key={choice.variant}
+              onClick={() => void trigger(choice.url, choice.variant)}>
               {choice.label}
             </DropdownMenuItem>
           ))}

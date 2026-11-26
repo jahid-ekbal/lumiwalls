@@ -19,6 +19,7 @@ import {
 import { SidebarTrigger } from "@/components/shadcnui/sidebar";
 import { authClient } from "@/lib/auth-client";
 import { initialsOf } from "@/lib/format";
+import { toImagePath } from "@/lib/imageUrl";
 import {
   ChevronRightIcon,
   LayoutDashboardIcon,
@@ -54,6 +55,8 @@ const ROUTE_LABELS: Record<string, string> = {
   collections: "Collections",
   featured: "Featured",
   analytics: "Analytics",
+  audit: "Audit Log",
+  u: "Creators",
 };
 
 const buildBreadcrumbs = (pathname: string): Crumb[] => {
@@ -94,7 +97,7 @@ const PrivateHeader = () => {
 
   return (
     <header className="border-border/60 bg-background/80 sticky top-0 z-30 border-b backdrop-blur-md">
-      <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-2.5">
           <SidebarTrigger aria-label="Toggle navigation sidebar" />
           <nav
@@ -153,7 +156,7 @@ const PrivateHeader = () => {
                   <Avatar className="size-8">
                     {user?.image ?
                       <AvatarImage
-                        src={user.image}
+                        src={toImagePath(user.image) ?? user.image}
                         alt={user?.name ?? "User avatar"}
                       />
                     : null}

@@ -2,6 +2,10 @@ import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 
 import { serverEnv } from "./env/serverEnv";
 import { s3Client } from "./storage/b2Client";
+import {
+  type AllowedRasterFormat,
+  EXT_FOR_FORMAT,
+} from "./storage/fileValidation";
 
 /**
  * Sanitize a file name by stripping path, replacing unsafe characters, and truncating.
@@ -14,12 +18,29 @@ export const sanitizeFileName = (name: string): string => {
 };
 
 /**
- * Build an S3 object key following the bucket key convention.
- *
- * Convention:
- *   wallpapers/{userId}/{uuid}-{name}              (original file)
- *   wallpapers/{userId}/thumb-{size}-{uuid}.webp   (thumbnail)
+ * Build an S3 object key following the bucket key convention using a canonical format extension.
  */
+export const buildKeyForFormat = (
+  userId: string,
+  format: AllowedRasterFormat,
+): {
+  original: string;
+  thumb400: string;
+  thumb800: string;
+  thumb1920: string;
+} => {
+  const uuid = crypto.randomUUID();
+  const base = `wallpapers/${userId}`;
+  const ext = EXT_FOR_FORMAT[format];
+
+  return {
+    original: `${base}/${uuid}.${ext}`,
+    thumb400: `${base}/thumb-400-${uuid}.webp`,
+    thumb800: `${base}/thumb-800-${uuid}.webp`,
+    thumb1920: `${base}/thumb-1920-${uuid}.webp`,
+  };
+};
+
 export const buildKey = (
   userId: string,
   fileName: string,
@@ -33,16 +54,13 @@ export const buildKey = (
   const base = `wallpapers/${userId}`;
 
   return {
-    original: `${base}/${uuid}-${fileName}`,
+    original: `${base}/${uuid}-${sanitizeFileName(fileName)}`,
     thumb400: `${base}/thumb-400-${uuid}.webp`,
     thumb800: `${base}/thumb-800-${uuid}.webp`,
     thumb1920: `${base}/thumb-1920-${uuid}.webp`,
   };
 };
 
-/**
- * Upload a buffer to S3 with the given key and content type.
- */
 export const uploadToS3 = async (
   key: string,
   body: Buffer | Uint8Array | Blob,
@@ -58,9 +76,6 @@ export const uploadToS3 = async (
   await s3Client.send(command);
 };
 
-/**
- * Upload a buffer to S3 as a WebP image.
- */
 export const uploadWebpToS3 = async (
   key: string,
   body: Buffer,
@@ -68,12 +83,8 @@ export const uploadWebpToS3 = async (
   await uploadToS3(key, body, "image/webp");
 };
 
-/**
- * Extract the bucket key from a stored image URL.
- *
- * Uploads persist public URLs shaped like `/api/images/wallpapers/...`,
- * while in-progress rows may still hold a raw `wallpapers/...` key.
- */
+const STORAGE_PREFIXES = ["wallpapers/", "avatars/", "banners/"] as const;
+
 export const extractS3Key = (url: string | null): string | null => {
   if (!url) {
     return null;
@@ -81,14 +92,13 @@ export const extractS3Key = (url: string | null): string | null => {
   const marker = "/api/images/";
   const index = url.indexOf(marker);
   if (index === -1) {
-    return url.startsWith("wallpapers/") ? url : null;
+    return STORAGE_PREFIXES.some((prefix) => url.startsWith(prefix)) ? url : null;
   }
-  return url.slice(index + marker.length);
+  const raw = url.slice(index + marker.length);
+  const queryStart = raw.indexOf("?");
+  return queryStart === -1 ? raw : raw.slice(0, queryStart);
 };
 
-/**
- * Delete a single object from S3. Never throws, missing keys are ignored.
- */
 export const deleteFromS3 = async (key: string): Promise<void> => {
   try {
     await s3Client.send(
@@ -102,9 +112,6 @@ export const deleteFromS3 = async (key: string): Promise<void> => {
   }
 };
 
-/**
- * Delete many objects from S3 in parallel. Never throws.
- */
 export const deleteManyFromS3 = async (keys: string[]): Promise<void> => {
   await Promise.all(keys.map((key) => deleteFromS3(key)));
 };

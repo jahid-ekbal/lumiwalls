@@ -1,6 +1,11 @@
 "use client";
 
 import PasswordInput from "@/components/Auth/PasswordInput";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/shadcnui/alert";
 import { Badge } from "@/components/shadcnui/badge";
 import { Button } from "@/components/shadcnui/button";
 import {
@@ -18,12 +23,20 @@ import {
 } from "@/components/shadcnui/field";
 import { authClient } from "@/lib/auth-client";
 import { profilePasswordSchema } from "@/lib/zodSchema";
+import { completePasswordRotation } from "@/server/actions/profile";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { KeyRoundIcon, Loader2Icon, UsersIcon, XIcon } from "lucide-react";
+import {
+  KeyRoundIcon,
+  Loader2Icon,
+  ShieldAlertIcon,
+  UsersIcon,
+  XIcon,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
-import { useCallback, useEffect, useState } from "react";
 
 type ListSessionsResult = Awaited<ReturnType<typeof authClient.listSessions>>;
 type AuthSession = NonNullable<ListSessionsResult["data"]>[number];
@@ -63,7 +76,12 @@ const mapAuthError = (message: string | null | undefined): string => {
   return message;
 };
 
-const ProfileSecurity = () => {
+type ProfileSecurityProps = {
+  forceReset?: boolean;
+};
+
+const ProfileSecurity = ({ forceReset = false }: ProfileSecurityProps) => {
+  const router = useRouter();
   const {
     handleSubmit,
     control,
@@ -108,14 +126,21 @@ const ProfileSecurity = () => {
     const { error } = await authClient.changePassword({
       currentPassword: values.currentPassword,
       newPassword: values.newPassword,
-      revokeOtherSessions: false,
+      revokeOtherSessions: true,
     });
     if (error) {
       toast.error(mapAuthError(error.message));
       return;
     }
-    toast.success("Password updated");
+    await completePasswordRotation();
+    toast.success("Password updated and other sessions signed out");
     reset();
+    await loadSessions();
+    if (forceReset) {
+      router.replace("/browse");
+    } else {
+      router.refresh();
+    }
   };
 
   const revokeOne = async (session: AuthSession) => {
@@ -146,181 +171,198 @@ const ProfileSecurity = () => {
 
   return (
     <div className="grid gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Change password</CardTitle>
-          <CardDescription>
-            Confirm your current password and set a new one.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={handleSubmit(changePasswordHandler)}
-            className="grid max-w-md gap-4"
-            noValidate>
-            <FieldGroup>
-              <Controller
-                name="currentPassword"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>
-                      Current password
-                    </FieldLabel>
-                    <PasswordInput
-                      {...field}
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      autoComplete="current-password"
-                      placeholder="Enter your current password"
+      {forceReset ?
+        <Alert variant="destructive">
+          <ShieldAlertIcon aria-hidden="true" />
+          <AlertTitle>Temporary password rotation required</AlertTitle>
+          <AlertDescription>
+            An administrator issued a temporary password for your account. Enter
+            your temporary password below and set a new private password to
+            unlock the gallery.
+          </AlertDescription>
+        </Alert>
+      : null}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Change password</CardTitle>
+            <CardDescription>
+              Confirm your current password and choose a new one. All other
+              signed-in devices will be signed out automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={handleSubmit(changePasswordHandler)}
+              className="grid gap-4"
+              noValidate>
+              <FieldGroup>
+                <Controller
+                  name="currentPassword"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>
+                        Current password
+                      </FieldLabel>
+                      <PasswordInput
+                        {...field}
+                        id={field.name}
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="current-password"
+                        placeholder="Enter your current password"
+                      />
+                      {fieldState.invalid ?
+                        <FieldError errors={[fieldState.error]} />
+                      : null}
+                    </Field>
+                  )}
+                />
+
+                <Controller
+                  name="newPassword"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>New password</FieldLabel>
+                      <PasswordInput
+                        {...field}
+                        id={field.name}
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="new-password"
+                        placeholder="At least 8 characters"
+                      />
+                      {fieldState.invalid ?
+                        <FieldError errors={[fieldState.error]} />
+                      : null}
+                    </Field>
+                  )}
+                />
+
+                <Controller
+                  name="confirmPassword"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>
+                        Confirm password
+                      </FieldLabel>
+                      <PasswordInput
+                        {...field}
+                        id={field.name}
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="new-password"
+                        placeholder="Repeat the new password"
+                      />
+                      {fieldState.invalid ?
+                        <FieldError errors={[fieldState.error]} />
+                      : null}
+                    </Field>
+                  )}
+                />
+              </FieldGroup>
+
+              <div>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !isValid}>
+                  {isSubmitting ?
+                    <>
+                      <Loader2Icon
+                        data-icon="inline-start"
+                        className="animate-spin"
+                      />
+                      <span>Updating</span>
+                    </>
+                  : <>
+                      <KeyRoundIcon data-icon="inline-start" />
+                      <span>Update password</span>
+                    </>
+                  }
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Active sessions</CardTitle>
+            <CardDescription>
+              Devices and browsers signed in to your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-3">
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={isRevokingOthers || (sessions ?? []).length <= 1}
+                onClick={() => void revokeOthers()}>
+                {isRevokingOthers ?
+                  <>
+                    <Loader2Icon className="animate-spin" />
+                    <span>Signing out</span>
+                  </>
+                : <>
+                    <UsersIcon
+                      data-icon="inline-start"
+                      className="size-4"
                     />
-                    {fieldState.invalid ?
-                      <FieldError errors={[fieldState.error]} />
-                    : null}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="newPassword"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>New password</FieldLabel>
-                    <PasswordInput
-                      {...field}
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      autoComplete="new-password"
-                      placeholder="At least 8 characters"
-                    />
-                    {fieldState.invalid ?
-                      <FieldError errors={[fieldState.error]} />
-                    : null}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="confirmPassword"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>
-                      Confirm password
-                    </FieldLabel>
-                    <PasswordInput
-                      {...field}
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      autoComplete="new-password"
-                      placeholder="Repeat the new password"
-                    />
-                    {fieldState.invalid ?
-                      <FieldError errors={[fieldState.error]} />
-                    : null}
-                  </Field>
-                )}
-              />
-            </FieldGroup>
-
-            <Button
-              type="submit"
-              disabled={isSubmitting || !isValid}>
-              {isSubmitting ?
-                <>
-                  <Loader2Icon
-                    data-icon="inline-start"
-                    className="animate-spin"
-                  />
-                  <span>Updating</span>
-                </>
-              : <>
-                  <KeyRoundIcon data-icon="inline-start" />
-                  <span>Update password</span>
-                </>
-              }
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Active sessions</CardTitle>
-          <CardDescription>
-            Devices and browsers signed in to your account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-3">
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              disabled={isRevokingOthers || (sessions ?? []).length <= 1}
-              onClick={() => void revokeOthers()}>
-              {isRevokingOthers ?
-                <>
-                  <Loader2Icon className="animate-spin" />
-                  <span>Signing out</span>
-                </>
-              : <>
-                  <UsersIcon
-                    data-icon="inline-start"
-                    className="size-4"
-                  />
-                  <span>Sign out all others</span>
-                </>
-              }
-            </Button>
-          </div>
-          {sessions === null ?
-            <p className="text-muted-foreground text-sm">Loading sessions.</p>
-          : <ul className="grid gap-2">
-              {sessions.map((entry) => {
-                const isCurrent =
-                  currentToken !== null && entry.token === currentToken;
-                const isBusy = revokingToken === entry.token;
-                return (
-                  <li
-                    key={entry.token}
-                    className="border-border/60 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2.5">
-                    <div className="grid min-w-0 gap-0.5">
-                      <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                        {deviceLabel(entry.userAgent)}
-                        {isCurrent ?
-                          <Badge variant="secondary">This device</Badge>
-                        : null}
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        {entry.ipAddress ?? "Unknown location"}
-                        {" · Signed in "}
-                        {format(new Date(entry.createdAt), "MMM d, yyyy")}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="xs"
-                      disabled={isBusy}
-                      onClick={() => void revokeOne(entry)}>
-                      {isBusy ?
-                        <Loader2Icon className="size-3 animate-spin" />
-                      : <XIcon
-                          data-icon="inline-start"
-                          className="size-3"
-                        />
-                      }
-                      <span>Sign out</span>
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-          }
-        </CardContent>
-      </Card>
+                    <span>Sign out all others</span>
+                  </>
+                }
+              </Button>
+            </div>
+            {sessions === null ?
+              <p className="text-muted-foreground text-sm">Loading sessions.</p>
+            : <ul className="grid gap-2">
+                {sessions.map((entry) => {
+                  const isCurrent =
+                    currentToken !== null && entry.token === currentToken;
+                  const isBusy = revokingToken === entry.token;
+                  return (
+                    <li
+                      key={entry.token}
+                      className="border-border/60 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2.5">
+                      <div className="grid min-w-0 gap-0.5">
+                        <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                          {deviceLabel(entry.userAgent)}
+                          {isCurrent ?
+                            <Badge variant="secondary">This device</Badge>
+                          : null}
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          {entry.ipAddress ?? "Unknown location"}
+                          {" · Signed in "}
+                          {format(new Date(entry.createdAt), "MMM d, yyyy")}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="xs"
+                        disabled={isBusy}
+                        onClick={() => void revokeOne(entry)}>
+                        {isBusy ?
+                          <Loader2Icon className="size-3 animate-spin" />
+                        : <XIcon
+                            data-icon="inline-start"
+                            className="size-3"
+                          />
+                        }
+                        <span>Sign out</span>
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            }
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

@@ -1,9 +1,9 @@
 import SettingsClient from "@/components/Settings/SettingsClient";
 import PageHeader from "@/components/UI/PageHeader";
-import { auth } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { createMetadata } from "@/lib/metadata";
-import { headers } from "next/headers";
+import { isPrimaryAdminEmail } from "@/server/admin";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +14,7 @@ export const metadata = createMetadata({
 });
 
 const SettingsPage = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    redirect("/");
-  }
+  const session = await requireActiveUser();
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -26,6 +23,7 @@ const SettingsPage = async () => {
       email: true,
       bio: true,
       location: true,
+      handle: true,
     },
   });
 
@@ -38,13 +36,15 @@ const SettingsPage = async () => {
       <PageHeader
         eyebrow="Preferences"
         title="Settings"
-        description="Manage your public profile details, gallery appearance, and security."
+        description="Manage your public profile details, creator handle, gallery appearance, and account security."
       />
       <SettingsClient
         initialName={user.name}
         initialBio={user.bio ?? ""}
         initialLocation={user.location ?? ""}
+        initialHandle={user.handle ?? ""}
         email={user.email}
+        isProtectedAdmin={isPrimaryAdminEmail(user.email)}
       />
     </div>
   );

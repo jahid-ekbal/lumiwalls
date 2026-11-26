@@ -160,6 +160,7 @@ type ReportWallpaperButtonProps = {
   wallpaperTitle: string;
   reported: boolean;
   size?: "xs" | "sm" | "default";
+  className?: string;
 };
 
 const ReportWallpaperButton = ({
@@ -167,6 +168,7 @@ const ReportWallpaperButton = ({
   wallpaperTitle,
   reported,
   size = "sm",
+  className,
 }: ReportWallpaperButtonProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reportedLocal, setReportedLocal] = useState(reported);
@@ -178,6 +180,7 @@ const ReportWallpaperButton = ({
         variant="ghost"
         size={size}
         disabled={reportedLocal}
+        className={className}
         onClick={(event) => {
           event.stopPropagation();
           setDialogOpen(true);

@@ -1,4 +1,4 @@
-import { Badge } from "@/components/shadcnui/badge";
+import StatusBadge from "@/components/UI/StatusBadge";
 import {
   Card,
   CardContent,
@@ -6,125 +6,117 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/shadcnui/table";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
-import { FlagIcon } from "lucide-react";
-import { headers } from "next/headers";
-import Link from "next/link";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
+import { ShieldCheckIcon } from "lucide-react";
 import type { Route } from "next";
+import Link from "next/link";
+import type { ModerationStatus } from "./dashboard-utils";
 
-const REPORTS_TAKE = 3;
+const REASON_LABELS: Record<string, string> = {
+  SPAM: "Spam",
+  NSFW: "NSFW content",
+  COPYRIGHT: "Copyright",
+  LOW_QUALITY: "Low quality",
+  OTHER: "Other",
+};
 
-const reportStatusBadge = (status: "PENDING" | "RESOLVED" | "DISMISSED") => {
-  switch (status) {
-    case "PENDING":
-      return { label: "Pending", variant: "secondary" as const };
-    case "RESOLVED":
-      return { label: "Resolved", variant: "default" as const };
-    case "DISMISSED":
-      return { label: "Dismissed", variant: "outline" as const };
-  }
+const REPORT_STATUS_MAP: Record<string, ModerationStatus> = {
+  OPEN: "OPEN",
+  REVIEWED: "REVIEWED",
+  DISMISSED: "DISMISSED",
 };
 
 const DashboardReports = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
 
   if (!session?.user) {
     return null;
   }
 
-  const [totalReports, latest] = await Promise.all([
-    prisma.report.count({ where: { reporterId: session.user.id } }),
-    prisma.report.findMany({
-      where: { reporterId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      take: REPORTS_TAKE,
-      select: {
-        id: true,
-        reason: true,
-        status: true,
-        createdAt: true,
-        wallpaper: { select: { title: true, slug: true } },
+  const reports = await prisma.report.findMany({
+    where: { reporterId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+    select: {
+      id: true,
+      reason: true,
+      status: true,
+      createdAt: true,
+      wallpaper: {
+        select: {
+          title: true,
+          slug: true,
+          isApproved: true,
+          isPublic: true,
+        },
       },
-    }),
-  ]);
+    },
+  });
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>My reports</CardTitle>
-          <Badge variant="outline">{totalReports} total</Badge>
-        </div>
+        <CardTitle>Your reports</CardTitle>
         <CardDescription>
-          The wallpaper flags you filed and where they stand
+          Flags you submitted and their review state
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        {latest.length === 0 ?
-          <div className="flex flex-col items-center gap-3 py-6 text-center">
-            <FlagIcon className="text-muted-foreground size-8" />
-            <p className="text-muted-foreground max-w-sm text-sm">
-              You have not reported a wallpaper yet.
+      <CardContent className="flex-1">
+        {reports.length === 0 ?
+          <div className="flex items-center gap-3 py-4">
+            <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full">
+              <ShieldCheckIcon
+                aria-hidden="true"
+                className="size-4"
+              />
+            </span>
+            <p className="text-body-sm text-muted-foreground">
+              You have not filed any reports. Help keep the gallery clean from
+              the Browse viewer.
             </p>
           </div>
-        : <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Wallpaper</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Filed</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {latest.map((report) => {
-                const status = reportStatusBadge(report.status);
-                return (
-                  <TableRow key={report.id}>
-                    <TableCell className="max-w-40">
+        : <ul className="grid gap-2">
+            {reports.map((report) => {
+              const isViewable =
+                report.wallpaper.isApproved && report.wallpaper.isPublic;
+              return (
+                <li
+                  key={report.id}
+                  className="bg-muted/30 flex items-center justify-between gap-3 rounded-xl px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    {isViewable ?
                       <Link
-                        href={preview(report.wallpaper.slug)}
-                        className="block truncate font-medium hover:underline">
+                        href={
+                          `/browse?preview=${report.wallpaper.slug}` as Route
+                        }
+                        className="text-body-sm block truncate font-medium hover:underline">
                         {report.wallpaper.title}
                       </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground lowercase">
-                      {report.reason.toLowerCase()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-right">
-                      <time
-                        suppressHydrationWarning={true}
-                        dateTime={report.createdAt.toISOString()}
-                        title={formatDistanceToNow(report.createdAt, {
-                          addSuffix: true,
-                        })}>
-                        {format(report.createdAt, "MMM d, yyyy")}
-                      </time>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    : <span className="text-body-sm block truncate font-medium">
+                        {report.wallpaper.title}
+                      </span>
+                    }
+                    <p className="text-caption text-muted-foreground truncate">
+                      {REASON_LABELS[report.reason] ?? report.reason} &middot;{" "}
+                      {formatDistanceToNow(report.createdAt, {
+                        addSuffix: true,
+                      })}
+                    </p>
+                  </div>
+                  <StatusBadge
+                    status={REPORT_STATUS_MAP[report.status] ?? "OPEN"}
+                    className="shrink-0"
+                  />
+                </li>
+              );
+            })}
+          </ul>
         }
       </CardContent>
     </Card>
   );
 };
-
-const preview = (slug: string) => `/browse?preview=${slug}` as Route;
 
 export default DashboardReports;

@@ -52,8 +52,8 @@ const ForgotPasswordPage = () => {
             management console.
           </li>
           <li>
-            Once signed in, update your password right away from Profile
-            security.
+            Once signed in, you will be redirected to Profile security to set a
+            new password right away.
           </li>
         </ol>
       </div>

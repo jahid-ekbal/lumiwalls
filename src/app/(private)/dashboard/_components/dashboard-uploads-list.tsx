@@ -1,5 +1,4 @@
-import EmptyState from "@/components/UI/EmptyState";
-import StatusBadge, { deriveWallpaperStatus } from "@/components/UI/StatusBadge";
+import StatusBadge from "@/components/UI/StatusBadge";
 import { buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
@@ -9,132 +8,129 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
-import { formatDate } from "@/lib/format";
 import { toImagePath } from "@/lib/imageUrl";
-import { ArrowRightIcon, ImagesIcon, UploadIcon } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ArrowRightIcon, ImageIcon, UploadIcon } from "lucide-react";
 import type { Route } from "next";
-import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
-
-const UPLOADS_TAKE = 6;
-
-const fetchUploads = (userId: string) =>
-  prisma.wallpaper.findMany({
-    where: { uploaderId: userId },
-    orderBy: { createdAt: "desc" },
-    take: UPLOADS_TAKE,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      createdAt: true,
-      isApproved: true,
-      isPublic: true,
-      thumb400Url: true,
-      thumb800Url: true,
-      originalUrl: true,
-      blurDataUrl: true,
-      width: true,
-      height: true,
-      moderationQueue: {
-        select: { status: true },
-      },
-    },
-  });
+import { resolveModerationStatus } from "./dashboard-utils";
 
 const DashboardUploadsList = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
 
   if (!session?.user) {
     return null;
   }
 
-  const uploads = await fetchUploads(session.user.id);
+  const recentUploads = await prisma.wallpaper.findMany({
+    where: { uploaderId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      thumb400Url: true,
+      blurDataUrl: true,
+      isApproved: true,
+      isPublic: true,
+      createdAt: true,
+      moderationQueue: { select: { status: true } },
+    },
+  });
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
-        <CardTitle>My uploads</CardTitle>
-        <CardDescription>Your latest wallpapers</CardDescription>
+        <CardTitle>Recent uploads</CardTitle>
+        <CardDescription>
+          Status of your latest wallpaper submissions
+        </CardDescription>
         <CardAction>
           <Link
             href={"/upload" as Route}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            View all
+            className={buttonVariants({ variant: "ghost", size: "xs" })}>
+            Manage
             <ArrowRightIcon data-icon="inline-end" />
           </Link>
         </CardAction>
       </CardHeader>
-      <CardContent>
-        {uploads.length === 0 ?
-          <EmptyState
-            compact={true}
-            icon={ImagesIcon}
-            title="No uploads yet"
-            description="You have not uploaded anything yet. Share your first wallpaper."
-            action={
-              <Link
-                href={"/upload/new" as Route}
-                className={buttonVariants({ variant: "outline", size: "sm" })}>
-                <UploadIcon data-icon="inline-start" />
-                Upload wallpaper
-              </Link>
-            }
-          />
+      <CardContent className="flex-1">
+        {recentUploads.length === 0 ?
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <div className="bg-muted flex size-10 items-center justify-center rounded-full">
+              <ImageIcon
+                aria-hidden="true"
+                className="text-muted-foreground size-5"
+              />
+            </div>
+            <div className="grid gap-1">
+              <p className="text-body-sm font-medium">No uploads yet</p>
+              <p className="text-caption text-muted-foreground max-w-xs">
+                Upload a wallpaper to start building your library and tracking
+                views.
+              </p>
+            </div>
+            <Link
+              href={"/upload/new" as Route}
+              className={buttonVariants({ size: "sm" })}>
+              <UploadIcon data-icon="inline-start" />
+              Upload wallpaper
+            </Link>
+          </div>
         : <ul className="grid gap-2">
-            {uploads.map((row) => {
-              const status = deriveWallpaperStatus({
-                isApproved: row.isApproved,
-                moderationStatus: row.moderationQueue?.status,
-              });
-              const src = toImagePath(
-                row.thumb400Url ?? row.thumb800Url ?? row.originalUrl,
+            {recentUploads.map((row) => {
+              const status = resolveModerationStatus(
+                row.isApproved,
+                row.moderationQueue?.status,
               );
-              const isOptimizable = row.isApproved && row.isPublic;
+              const thumbSrc = toImagePath(row.thumb400Url);
+              const href = (
+                row.isApproved && row.isPublic ?
+                  `/browse?preview=${row.slug}`
+                : `/upload/${row.id}/edit`) as Route;
+
               return (
                 <li key={row.id}>
                   <Link
-                    href={`/browse?preview=${row.slug}` as Route}
-                    className="hover:bg-muted/40 focus-visible:ring-ring/50 flex items-center gap-3 rounded-inset p-2 transition-colors outline-none focus-visible:ring-3">
-                    <span className="ring-foreground/5 relative block h-10 w-16 shrink-0 overflow-hidden rounded-lg ring-1">
-                      {src ?
-                        isOptimizable ?
-                          <Image
-                            src={src}
-                            alt={row.title}
-                            fill={true}
-                            sizes="64px"
-                            placeholder={row.blurDataUrl ? "blur" : "empty"}
-                            blurDataURL={row.blurDataUrl ?? undefined}
-                            className="pointer-events-none object-cover"
+                    href={href}
+                    className="hover:bg-muted/60 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl p-2 transition-colors outline-none focus-visible:ring-2">
+                    <div className="bg-muted relative h-10 w-16 shrink-0 overflow-hidden rounded-lg">
+                      {thumbSrc ?
+                        <Image
+                          src={thumbSrc}
+                          alt={row.title}
+                          fill
+                          sizes="64px"
+                          placeholder={row.blurDataUrl ? "blur" : "empty"}
+                          blurDataURL={row.blurDataUrl ?? undefined}
+                          className="object-cover"
+                        />
+                      : <span className="text-muted-foreground flex size-full items-center justify-center">
+                          <ImageIcon
+                            aria-hidden="true"
+                            className="size-4"
                           />
-                        : /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={src}
-                            alt={row.title}
-                            loading="lazy"
-                            className="pointer-events-none absolute inset-0 size-full object-cover"
-                          />
-                      : <span className="bg-muted flex size-full items-center justify-center">
-                          <ImagesIcon className="text-muted-foreground size-4" />
                         </span>
                       }
-                    </span>
-                    <span className="grid min-w-0 flex-1 gap-0.5">
-                      <span className="text-body-sm truncate font-medium">
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-body-sm truncate font-medium">
                         {row.title}
-                      </span>
-                      <time
-                        suppressHydrationWarning={true}
-                        dateTime={row.createdAt.toISOString()}
-                        className="text-caption text-muted-foreground">
-                        {formatDate(row.createdAt)}
-                      </time>
-                    </span>
-                    <StatusBadge status={status} />
+                      </p>
+                      <p className="text-caption text-muted-foreground">
+                        {formatDistanceToNow(row.createdAt, {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    </div>
+                    <StatusBadge
+                      status={status}
+                      className="shrink-0"
+                    />
                   </Link>
                 </li>
               );

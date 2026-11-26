@@ -1,8 +1,11 @@
 import AuthShell from "@/components/Auth/AuthShell";
 import SignInForm from "@/components/Auth/SignInForm";
+import { getActiveSession } from "@/lib/auth/session";
 import { createMetadata } from "@/lib/metadata";
 import type { Route } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +14,12 @@ export const metadata = createMetadata({
   description: "Sign in to your Lumiwalls account",
 });
 
-const HomePage = () => {
+const HomePage = async () => {
+  const session = await getActiveSession();
+  if (session) {
+    redirect(session.user.role === "admin" ? "/admin" : "/browse");
+  }
+
   return (
     <AuthShell
       title="Welcome back"
@@ -35,7 +43,9 @@ const HomePage = () => {
           </Link>
         </>
       }>
-      <SignInForm />
+      <Suspense fallback={null}>
+        <SignInForm />
+      </Suspense>
     </AuthShell>
   );
 };

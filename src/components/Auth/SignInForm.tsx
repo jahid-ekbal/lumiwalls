@@ -20,13 +20,23 @@ import { authClient } from "@/lib/auth-client";
 import { signInSchema, type SignInType } from "@/lib/zodSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircleIcon, Loader2Icon, LockIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import type { Route } from "next";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 
+const isSafeCallbackUrl = (value: string | null): value is Route => {
+  if (!value) return false;
+  if (!value.startsWith("/") || value.startsWith("//")) return false;
+  if (value.startsWith("/api")) return false;
+  return true;
+};
+
 const SignInForm = () => {
   const { replace } = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -61,6 +71,10 @@ const SignInForm = () => {
 
     toast.success("Welcome back!");
     reset();
+    if (isSafeCallbackUrl(callbackUrl)) {
+      replace(callbackUrl);
+      return;
+    }
     const { data: session } = await authClient.getSession();
     if (session?.user.role === "admin") {
       replace("/admin");

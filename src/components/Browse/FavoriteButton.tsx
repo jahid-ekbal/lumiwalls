@@ -6,6 +6,7 @@ import { toggleFavorite } from "@/server/actions/favorites";
 import { HeartIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { useGallerySync } from "./GallerySyncContext";
 
 type FavoriteButtonProps = {
   wallpaperId: string;
@@ -28,13 +29,27 @@ const FavoriteButton = ({
   iconOnly = false,
   className,
 }: FavoriteButtonProps) => {
+  const sync = useGallerySync();
   const [overlay, setOverlay] = useState<{
     favorited: boolean;
     favoriteCount: number;
   } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const current = overlay ?? { favorited, favoriteCount };
+  const syncedState = sync?.getState({
+    id: wallpaperId,
+    favoritedByMe: favorited,
+    favoriteCount,
+    downloadCount: 0,
+  } as never);
+
+  const current = overlay ??
+    (syncedState ?
+      {
+        favorited: syncedState.favorited,
+        favoriteCount: syncedState.favoriteCount,
+      }
+    : { favorited, favoriteCount });
 
   const handleToggle = async () => {
     if (busy) {
@@ -42,21 +57,35 @@ const FavoriteButton = ({
     }
     const next = {
       favorited: !current.favorited,
-      favoriteCount: current.favoriteCount + (current.favorited ? -1 : 1),
+      favoriteCount: Math.max(
+        0,
+        current.favoriteCount + (current.favorited ? -1 : 1),
+      ),
     };
     setOverlay(next);
+    sync?.setFavoriteState(wallpaperId, next.favorited, next.favoriteCount);
     setBusy(true);
     try {
       const result = await toggleFavorite({ wallpaperId });
       if (result.success) {
-        const synced = {
+        const confirmed = {
           favorited: result.favorited,
           favoriteCount: result.favoriteCount,
         };
-        setOverlay(synced);
-        onUpdated?.(synced.favorited, synced.favoriteCount);
+        setOverlay(confirmed);
+        sync?.setFavoriteState(
+          wallpaperId,
+          confirmed.favorited,
+          confirmed.favoriteCount,
+        );
+        onUpdated?.(confirmed.favorited, confirmed.favoriteCount);
       } else {
         setOverlay(null);
+        sync?.setFavoriteState(
+          wallpaperId,
+          current.favorited,
+          current.favoriteCount,
+        );
         toast.error(
           result.error === "NOT_FOUND" ?
             "Wallpaper is unavailable"
@@ -65,6 +94,11 @@ const FavoriteButton = ({
       }
     } catch {
       setOverlay(null);
+      sync?.setFavoriteState(
+        wallpaperId,
+        current.favorited,
+        current.favoriteCount,
+      );
       toast.error("Could not update favorite");
     } finally {
       setBusy(false);
@@ -84,7 +118,8 @@ const FavoriteButton = ({
         : undefined
       }
       className={cn(
-        current.favorited && "text-rose-300 hover:text-rose-300",
+        current.favorited &&
+          "text-rose-500 hover:text-rose-500 dark:text-rose-400 dark:hover:text-rose-400",
         className,
       )}
       onClick={(event: React.MouseEvent<HTMLButtonElement>) => {

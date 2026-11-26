@@ -37,8 +37,8 @@ Curated quality. Every upload passes through a moderation queue, and editors pic
 - Wallpapers carry thumbnails at 400, 800, and 1920 pixels, a blur placeholder, dimensions, format, file size, aspect ratio, and dominant colors.
 - Moderation statuses: pending, approved, rejected. Reports cover spam, nudity, copyright, violence, and other.
 - Upload limit is five per hour per user. Downloads are proxied through the app for tracking.
-- Public routes include browse, wallpaper preview via a slug query parameter, and public profiles at `/u/[handle]`.
-- Undecided: whether password reset email delivery is configured. Settings sections are limited to actions the app actually backs.
+- All application routes (`/browse`, `/collections`, `/u/[handle]`, `/dashboard`, `/upload`, `/profile`, `/settings`, `/admin`, `/api/images/*`, and `/api/upload/*`) are private and require an authenticated session. Only `/`, `/sign-up`, `/forgot-password`, and `/api/health` are accessible before sign-in, and unauthenticated entry pages display zero user-uploaded wallpaper thumbnails.
+- Password reset is admin-assisted via temporary password generation with mandatory password rotation and session revocation. Settings pages are limited to real backed user actions.
 
 ## Brand Commitments
 

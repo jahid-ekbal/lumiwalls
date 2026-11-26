@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { Prisma } from "@generated/prisma/client";
-import { auth } from "@/lib/auth";
+import { requireAdminAction } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
+import { recordAdminAuditLog } from "@/lib/security/auditLog";
 import { slugify } from "@/lib/slugify";
 import { categoryCreateSchema, categoryUpdateSchema } from "@/lib/zodSchema";
 
@@ -16,19 +16,6 @@ async function getValidIconNames(): Promise<Set<string>> {
     cachedIconNames = new Set(Object.keys(icons));
   }
   return cachedIconNames;
-}
-
-async function requireAdmin() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.user) {
-    return { authorized: false as const, error: "UNAUTHORIZED" as const };
-  }
-  if (session.user.role !== "admin") {
-    return { authorized: false as const, error: "FORBIDDEN" as const };
-  }
-  return { authorized: true as const, session };
 }
 
 function mapUniqueViolation(error: unknown) {
@@ -58,7 +45,7 @@ async function validateIcon(icon: string | undefined | null) {
 }
 
 export async function createCategory(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -100,9 +87,19 @@ export async function createCategory(input: unknown) {
       },
     });
 
+    await recordAdminAuditLog({
+      actorId: authCheck.session.user.id,
+      action: "CATEGORY_CREATE",
+      targetType: "category",
+      targetId: category.id,
+      summary: `Created category "${category.name}"`,
+    });
+
     revalidatePath("/admin/categories");
+    revalidatePath("/admin/audit");
     revalidatePath("/upload");
     revalidatePath("/upload/new");
+    revalidatePath("/browse");
     return { success: true as const, data: category };
   } catch (error) {
     return mapUniqueViolation(error);
@@ -110,7 +107,7 @@ export async function createCategory(input: unknown) {
 }
 
 export async function updateCategory(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -166,9 +163,19 @@ export async function updateCategory(input: unknown) {
       },
     });
 
+    await recordAdminAuditLog({
+      actorId: authCheck.session.user.id,
+      action: "CATEGORY_UPDATE",
+      targetType: "category",
+      targetId: updated.id,
+      summary: `Updated category "${updated.name}"`,
+    });
+
     revalidatePath("/admin/categories");
+    revalidatePath("/admin/audit");
     revalidatePath("/upload");
     revalidatePath("/upload/new");
+    revalidatePath("/browse");
     return { success: true as const, data: updated };
   } catch (error) {
     return mapUniqueViolation(error);
@@ -176,7 +183,7 @@ export async function updateCategory(input: unknown) {
 }
 
 export async function deleteCategory(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -196,7 +203,17 @@ export async function deleteCategory(input: unknown) {
 
   await prisma.category.delete({ where: { id } });
 
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "CATEGORY_DELETE",
+    targetType: "category",
+    targetId: existing.id,
+    summary: `Deleted category "${existing.name}"`,
+  });
+
   revalidatePath("/admin/categories");
+  revalidatePath("/admin/audit");
   revalidatePath("/upload");
+  revalidatePath("/browse");
   return { success: true as const };
 }

@@ -18,6 +18,14 @@ export type BrowseTagRef = {
   slug: string;
 };
 
+export type UserBoardSummary = {
+  id: string;
+  title: string;
+  slug: string;
+  isPublicToMembers: boolean;
+  itemCount: number;
+};
+
 export type BrowseWallpaper = {
   id: string;
   title: string;
@@ -40,6 +48,7 @@ export type BrowseWallpaper = {
   viewCount: number;
   favoriteCount: number;
   favoritedByMe: boolean;
+  boardIds?: string[];
   createdAt: Date;
   category: {
     id: string;
@@ -48,6 +57,7 @@ export type BrowseWallpaper = {
   } | null;
   uploader: {
     name: string;
+    handle: string | null;
     image: string | null;
   };
   tags: {

@@ -2,15 +2,18 @@
 
 import { useTheme } from "next-themes";
 import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const ToastProvider = () => {
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   return (
     <ToastContainer
       position="bottom-right"
-      autoClose={1500}
-      theme={theme === "dark" ? "dark" : "light"}
+      autoClose={3500}
+      newestOnTop={true}
+      closeOnClick={true}
+      theme={resolvedTheme === "light" ? "light" : "dark"}
     />
   );
 };

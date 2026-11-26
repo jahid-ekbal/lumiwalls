@@ -4,8 +4,10 @@ import { Skeleton } from "@/components/shadcnui/skeleton";
 export const StatsSkeleton = () => {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <Card key={index}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <Card
+          key={index}
+          className="h-full">
           <CardHeader>
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-3 w-40" />

@@ -7,6 +7,7 @@ import { useDownloadWallpaper } from "./useDownloadWallpaper";
 
 type DownloadWallpaperButtonProps = {
   wallpaperId: string;
+  slug?: string;
   downloadUrl: string | null;
   downloadCount: number;
   onUpdated?: (downloadCount: number | null) => void;
@@ -17,6 +18,7 @@ type DownloadWallpaperButtonProps = {
 
 const DownloadWallpaperButton = ({
   wallpaperId,
+  slug,
   downloadUrl,
   downloadCount,
   onUpdated,
@@ -26,6 +28,7 @@ const DownloadWallpaperButton = ({
 }: DownloadWallpaperButtonProps) => {
   const { busy, trigger } = useDownloadWallpaper({
     wallpaperId,
+    slug,
     downloadCount,
     onUpdated,
   });
@@ -53,7 +56,7 @@ const DownloadWallpaperButton = ({
       onClick={(event) => {
         event.stopPropagation();
         event.preventDefault();
-        void trigger(downloadUrl);
+        void trigger(downloadUrl, "original");
       }}
       aria-disabled={busy}
       className={cn(

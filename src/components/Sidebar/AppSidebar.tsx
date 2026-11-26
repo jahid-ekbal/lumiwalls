@@ -20,10 +20,12 @@ import {
   BarChart3Icon,
   CompassIcon,
   FlagIcon,
+  FolderHeartIcon,
   FolderOpenIcon,
   ImagesIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
+  ScrollTextIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
@@ -39,6 +41,7 @@ import { useEffect } from "react";
 
 const items = [
   { title: "Browse", url: "/browse", icon: CompassIcon },
+  { title: "Collections", url: "/collections", icon: FolderHeartIcon },
   { title: "My uploads", url: "/upload", icon: ImagesIcon },
   { title: "New upload", url: "/upload/new", icon: UploadIcon },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
@@ -54,6 +57,7 @@ const adminItems = [
   { title: "Collections", url: "/admin/collections", icon: FolderOpenIcon },
   { title: "Featured", url: "/admin/featured", icon: SparklesIcon },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3Icon },
+  { title: "Audit Log", url: "/admin/audit", icon: ScrollTextIcon },
 ];
 
 export function AppSidebar() {

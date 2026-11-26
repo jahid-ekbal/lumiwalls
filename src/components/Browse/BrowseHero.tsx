@@ -38,10 +38,10 @@ const BrowseHero = ({ wallpapers }: { wallpapers: BrowseWallpaper[] }) => {
         <div className="flex items-center gap-2">
           <h2
             id="featured-rail-heading"
-            className="text-eyebrow text-muted-foreground font-medium uppercase">
+            className="text-body-sm text-foreground font-semibold tracking-tight">
             Featured
           </h2>
-          <span className="text-caption text-muted-foreground/70 tabular-nums">
+          <span className="text-caption text-muted-foreground tabular-nums">
             {wallpapers.length}
           </span>
         </div>
@@ -87,7 +87,7 @@ const BrowseHero = ({ wallpapers }: { wallpapers: BrowseWallpaper[] }) => {
               <article
                 key={item.id}
                 style={{ "--stagger": Math.min(index, 4) } as React.CSSProperties}
-                className="gallery-stagger group/hero bg-card relative h-52 w-72 shrink-0 snap-start overflow-hidden rounded-inset border shadow-lg shadow-black/20 transition-shadow duration-base md:h-44 md:w-auto md:max-w-none xl:h-52">
+                className="gallery-stagger group/hero bg-card relative h-48 w-72 shrink-0 snap-start overflow-hidden rounded-inset border border-border/70 transition-colors duration-base hover:border-foreground/30 md:h-48 md:w-auto xl:h-52">
                 <button
                   type="button"
                   aria-label={`Open ${item.title}`}

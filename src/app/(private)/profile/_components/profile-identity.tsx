@@ -1,3 +1,4 @@
+import FollowListButtons from "@/components/Profile/FollowListDialog";
 import {
   Avatar,
   AvatarFallback,
@@ -5,7 +6,7 @@ import {
 } from "@/components/shadcnui/avatar";
 import { buttonVariants } from "@/components/shadcnui/button";
 import { Card } from "@/components/shadcnui/card";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { formatCount, formatDate, initialsOf } from "@/lib/format";
 import { toImagePath } from "@/lib/imageUrl";
@@ -16,14 +17,13 @@ import {
   MapPinIcon,
 } from "lucide-react";
 import type { Route } from "next";
-import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import ProfileEditDialog from "./profile-edit-dialog";
 import ProfileMedia from "./profile-media";
 
 const ProfileIdentity = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
   if (!session?.user) {
     return null;
   }
@@ -31,6 +31,7 @@ const ProfileIdentity = async () => {
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
+      id: true,
       name: true,
       email: true,
       image: true,
@@ -39,6 +40,24 @@ const ProfileIdentity = async () => {
       location: true,
       handle: true,
       createdAt: true,
+      followers: {
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        select: {
+          follower: {
+            select: { id: true, name: true, handle: true, image: true },
+          },
+        },
+      },
+      following: {
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        select: {
+          following: {
+            select: { id: true, name: true, handle: true, image: true },
+          },
+        },
+      },
       _count: {
         select: {
           wallpapers: true,
@@ -65,19 +84,22 @@ const ProfileIdentity = async () => {
             alt="Profile banner"
             fill={true}
             priority={true}
-            sizes="(max-width: 1100px) 100vw, 1216px"
+            sizes="100vw"
             className="object-cover"
           />
         : <div
             aria-hidden="true"
-            className="relative size-full overflow-hidden bg-gradient-to-br from-neutral-800/80 via-neutral-900/90 to-background">
-            <div className="absolute -top-24 -left-16 size-72 rounded-full bg-white/5 blur-3xl" />
-            <div className="absolute -right-12 -bottom-20 size-64 rounded-full bg-white/5 blur-3xl" />
-            <div className="border-border/30 absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            className="from-muted via-muted/70 to-card relative size-full overflow-hidden bg-gradient-to-br">
+            <div className="bg-foreground/5 absolute -top-24 -left-16 size-72 rounded-full blur-3xl" />
+            <div className="bg-foreground/5 absolute -right-12 -bottom-20 size-64 rounded-full blur-3xl" />
+            <div className="via-border absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent to-transparent" />
           </div>
         }
         <div className="absolute top-3 right-3 z-10">
-          <ProfileMedia kind="banner" />
+          <ProfileMedia
+            kind="banner"
+            hasImage={Boolean(bannerSrc)}
+          />
         </div>
       </div>
 
@@ -96,7 +118,10 @@ const ProfileIdentity = async () => {
               </AvatarFallback>
             </Avatar>
             <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4">
-              <ProfileMedia kind="avatar" />
+              <ProfileMedia
+                kind="avatar"
+                hasImage={Boolean(avatarSrc)}
+              />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -105,7 +130,7 @@ const ProfileIdentity = async () => {
                 href={`/u/${user.handle}` as Route}
                 className={buttonVariants({ variant: "outline", size: "sm" })}>
                 <ExternalLinkIcon data-icon="inline-start" />
-                Public profile
+                Creator profile
               </Link>
             : null}
             <ProfileEditDialog
@@ -148,18 +173,12 @@ const ProfileIdentity = async () => {
             </span>{" "}
             favorites
           </span>
-          <span>
-            <span className="text-foreground font-semibold tabular-nums">
-              {formatCount(user._count.followers)}
-            </span>{" "}
-            followers
-          </span>
-          <span>
-            <span className="text-foreground font-semibold tabular-nums">
-              {formatCount(user._count.following)}
-            </span>{" "}
-            following
-          </span>
+          <FollowListButtons
+            followersCount={user._count.followers}
+            followingCount={user._count.following}
+            followers={user.followers.map((row) => row.follower)}
+            following={user.following.map((row) => row.following)}
+          />
         </div>
 
         <div className="text-caption text-muted-foreground grid gap-1.5 sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-1">
@@ -184,7 +203,12 @@ const ProfileIdentity = async () => {
               aria-hidden="true"
               className="size-3.5"
             />
-            Member since {formatDate(user.createdAt, "MMMM yyyy")}
+            Joined{" "}
+            <time
+              suppressHydrationWarning={true}
+              dateTime={user.createdAt.toISOString()}>
+              {formatDate(user.createdAt)}
+            </time>
           </span>
         </div>
       </div>

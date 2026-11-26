@@ -1,17 +1,16 @@
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
-import { headers } from "next/headers";
 import ProfileLibraryTabs from "./profile-library-tabs";
 
-const LIBRARY_TAKE = 12;
+const LIBRARY_TAKE = 24;
 
 const ProfileWallpapers = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
   if (!session?.user) {
     return null;
   }
 
-  const [uploads, favorites] = await Promise.all([
+  const [uploads, favorites, boards, downloads] = await Promise.all([
     prisma.wallpaper.findMany({
       where: { uploaderId: session.user.id },
       orderBy: { createdAt: "desc" },
@@ -55,6 +54,43 @@ const ProfileWallpapers = async () => {
         },
       },
     }),
+    prisma.collection.findMany({
+      where: { ownerId: session.user.id, isCurated: false },
+      orderBy: { updatedAt: "desc" },
+      take: 24,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        coverUrl: true,
+        isPublicToMembers: true,
+        updatedAt: true,
+        _count: { select: { items: true } },
+      },
+    }),
+    prisma.downloadLog.findMany({
+      where: {
+        userId: session.user.id,
+        wallpaper: { isApproved: true, isPublic: true },
+      },
+      orderBy: { downloadedAt: "desc" },
+      take: LIBRARY_TAKE,
+      select: {
+        id: true,
+        variant: true,
+        downloadedAt: true,
+        wallpaper: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            thumb400Url: true,
+            thumb800Url: true,
+            blurDataUrl: true,
+          },
+        },
+      },
+    }),
   ]);
 
   return (
@@ -82,6 +118,25 @@ const ProfileWallpapers = async () => {
         originalUrl: entry.wallpaper.originalUrl,
         blurDataUrl: entry.wallpaper.blurDataUrl,
         uploaderName: entry.wallpaper.uploader.name,
+      }))}
+      boards={boards.map((board) => ({
+        id: board.id,
+        title: board.title,
+        slug: board.slug,
+        coverUrl: board.coverUrl,
+        isPublicToMembers: board.isPublicToMembers,
+        itemCount: board._count.items,
+        updatedAt: board.updatedAt.toISOString(),
+      }))}
+      downloads={downloads.map((log) => ({
+        id: log.id,
+        wallpaperId: log.wallpaper.id,
+        title: log.wallpaper.title,
+        slug: log.wallpaper.slug,
+        variant: log.variant,
+        downloadedAt: log.downloadedAt.toISOString(),
+        thumb400Url: log.wallpaper.thumb400Url ?? log.wallpaper.thumb800Url,
+        blurDataUrl: log.wallpaper.blurDataUrl,
       }))}
     />
   );

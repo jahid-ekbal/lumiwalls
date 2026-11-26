@@ -1,5 +1,6 @@
 import PageHeader from "@/components/UI/PageHeader";
 import { buttonVariants } from "@/components/shadcnui/button";
+import { requireActiveUser } from "@/lib/auth/session";
 import { createMetadata } from "@/lib/metadata";
 import { profileParamsSchema } from "@/lib/zodSchema";
 import { ShieldIcon, UserRoundIcon } from "lucide-react";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = createMetadata({
   title: "Profile",
-  description: "Your identity, wallpapers, and account security on Lumiwalls",
+  description: "Your identity, wallpapers, boards, and account security on Lumiwalls",
 });
 
 const firstParam = (
@@ -30,16 +31,19 @@ const PROFILE_TABS = [
 ] as const;
 
 const ProfilePage = async ({ searchParams }: ProfilePageProps) => {
+  const session = await requireActiveUser();
   const raw = await searchParams;
   const parsed = profileParamsSchema.safeParse({ tab: firstParam(raw.tab) });
   const { tab } = parsed.success ? parsed.data : profileParamsSchema.parse({});
+  const forceReset =
+    firstParam(raw.forceReset) === "1" || session.user.mustChangePassword;
 
   return (
     <div className="grid gap-6">
       <PageHeader
         eyebrow="Creator"
         title="Profile"
-        description="Your public identity, uploaded and favorited wallpapers, and account security."
+        description="Your member identity, submissions, boards, download history, and account security."
       />
 
       <div className="border-border/60 bg-card/50 w-fit rounded-control border p-1">
@@ -68,12 +72,12 @@ const ProfilePage = async ({ searchParams }: ProfilePageProps) => {
         </div>
       </div>
 
-      {tab === "identity" ?
+      {tab === "identity" && !session.user.mustChangePassword ?
         <div className="grid gap-6">
           <ProfileIdentity />
           <ProfileWallpapers />
         </div>
-      : <ProfileSecurity />}
+      : <ProfileSecurity forceReset={forceReset} />}
     </div>
   );
 };

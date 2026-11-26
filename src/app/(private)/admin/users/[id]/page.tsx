@@ -1,4 +1,5 @@
 import { AdminDetailSkeleton } from "@/components/UI/Skeletons";
+import { requireAdminUser } from "@/lib/auth/session";
 import { createMetadata } from "@/lib/metadata";
 import { Suspense } from "react";
 import UserDetailContent from "./_components/user-detail-content";
@@ -15,6 +16,7 @@ type Props = {
 };
 
 const UserDetailPage = async ({ params }: Props) => {
+  await requireAdminUser();
   const { id } = await params;
   return (
     <div className="grid gap-6">

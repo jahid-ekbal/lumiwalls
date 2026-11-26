@@ -1,46 +1,43 @@
 import { buttonVariants } from "@/components/shadcnui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { toImagePath } from "@/lib/imageUrl";
-import { CompassIcon, HeartIcon, ImagesIcon } from "lucide-react";
+import { ArrowRightIcon, HeartIcon } from "lucide-react";
 import type { Route } from "next";
-import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 
-const FAVORITES_TAKE = 6;
-
 const DashboardFavorites = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
 
   if (!session?.user) {
     return null;
   }
 
   const favorites = await prisma.favorite.findMany({
-    where: { userId: session.user.id },
+    where: {
+      userId: session.user.id,
+      wallpaper: { isApproved: true, isPublic: true },
+    },
     orderBy: { createdAt: "desc" },
-    take: FAVORITES_TAKE,
+    take: 6,
     select: {
+      id: true,
       wallpaper: {
         select: {
           id: true,
           title: true,
           slug: true,
           thumb400Url: true,
-          thumb800Url: true,
-          thumb1920Url: true,
-          originalUrl: true,
           blurDataUrl: true,
-          width: true,
-          height: true,
         },
       },
     },
@@ -49,62 +46,67 @@ const DashboardFavorites = async () => {
   return (
     <Card
       id="favorites"
-      className="scroll-mt-20">
+      className="flex h-full flex-col">
       <CardHeader>
         <CardTitle>Favorites</CardTitle>
-        <CardDescription>
-          The wallpapers you saved, newest first
-        </CardDescription>
+        <CardDescription>Wallpapers you have recently saved</CardDescription>
+        <CardAction>
+          <Link
+            href={"/profile?tab=favorites" as Route}
+            className={buttonVariants({ variant: "ghost", size: "xs" })}>
+            View all
+            <ArrowRightIcon data-icon="inline-end" />
+          </Link>
+        </CardAction>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {favorites.length === 0 ?
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <HeartIcon className="text-muted-foreground size-8" />
-            <p className="text-muted-foreground max-w-sm text-sm">
-              Nothing saved yet. Open a wallpaper on Browse and hit Favorite.
-            </p>
+            <div className="bg-muted flex size-10 items-center justify-center rounded-full">
+              <HeartIcon
+                aria-hidden="true"
+                className="text-muted-foreground size-5"
+              />
+            </div>
+            <div className="grid gap-1">
+              <p className="text-body-sm font-medium">No favorites yet</p>
+              <p className="text-caption text-muted-foreground max-w-xs">
+                Save wallpapers while browsing to keep them within easy reach.
+              </p>
+            </div>
             <Link
               href={"/browse" as Route}
-              className={buttonVariants({ variant: "outline", size: "sm" })}>
-              <CompassIcon
-                data-icon="inline-start"
-                className="size-4"
-              />
-              <span>Browse wallpapers</span>
+              className={buttonVariants({ variant: "secondary", size: "sm" })}>
+              Explore Browse
+              <ArrowRightIcon data-icon="inline-end" />
             </Link>
           </div>
-        : <div className="grid grid-cols-3 gap-3">
-            {favorites.map(({ wallpaper }) => {
-              const src = toImagePath(
-                wallpaper.thumb400Url ??
-                  wallpaper.thumb800Url ??
-                  wallpaper.thumb1920Url ??
-                  wallpaper.originalUrl,
-              );
+        : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {favorites.map((favorite) => {
+              const thumbSrc = toImagePath(favorite.wallpaper.thumb400Url);
               return (
                 <Link
-                  key={wallpaper.id}
-                  href={`/browse?preview=${wallpaper.slug}` as Route}
-                  aria-label={`Open ${wallpaper.title}`}
-                  className="group ring-foreground/5 focus-visible:ring-ring/50 relative block overflow-hidden rounded-xl ring-1 transition-shadow duration-200 hover:shadow-lg hover:shadow-black/20 focus-visible:ring-[3px]">
-                  {src ?
+                  key={favorite.id}
+                  href={`/browse?preview=${favorite.wallpaper.slug}` as Route}
+                  className="bg-muted group relative block aspect-4/3 overflow-hidden rounded-xl ring-1 ring-white/5 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none">
+                  {thumbSrc ?
                     <Image
-                      src={src}
-                      alt={wallpaper.title}
-                      width={wallpaper.width ?? 800}
-                      height={wallpaper.height ?? 600}
-                      sizes="(max-width: 1024px) 45vw, 220px"
-                      placeholder={wallpaper.blurDataUrl ? "blur" : "empty"}
-                      blurDataURL={wallpaper.blurDataUrl ?? undefined}
-                      className="pointer-events-none aspect-4/3 h-auto w-full object-cover transition-transform duration-base motion-safe:group-hover:scale-[1.05]"
+                      src={thumbSrc}
+                      alt={favorite.wallpaper.title}
+                      fill
+                      sizes="(max-width: 640px) 45vw, 180px"
+                      placeholder={
+                        favorite.wallpaper.blurDataUrl ? "blur" : "empty"
+                      }
+                      blurDataURL={favorite.wallpaper.blurDataUrl ?? undefined}
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
-                  : <div className="bg-muted flex aspect-4/3 w-full items-center justify-center">
-                      <ImagesIcon className="text-muted-foreground size-5" />
-                    </div>
-                  }
-                  <span className="text-caption absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 font-medium text-white opacity-0 transition-opacity duration-fast group-hover:opacity-100">
-                    <span className="line-clamp-1">{wallpaper.title}</span>
-                  </span>
+                  : null}
+                  <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/35 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                    <p className="truncate text-xs font-medium text-white">
+                      {favorite.wallpaper.title}
+                    </p>
+                  </div>
                 </Link>
               );
             })}

@@ -3,7 +3,7 @@ import PrivateHeader from "@/components/Header/PrivateHeader";
 import { AppSidebar } from "@/components/Sidebar/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/shadcnui/sidebar";
 import { TooltipProvider } from "@/components/shadcnui/tooltip";
-import { auth } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth/session";
 import { ensureHandle } from "@/lib/handle";
 import { createMetadata } from "@/lib/metadata";
 import type { LayoutProps } from "@/lib/type";
@@ -16,14 +16,17 @@ export const metadata = createMetadata({
 });
 
 const Privatelayout = async ({ children }: LayoutProps) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await requireActiveUser();
 
-  if (!session) {
-    redirect("/");
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get("x-pathname") ?? "";
+  if (
+    session.user.mustChangePassword &&
+    !pathname.startsWith("/profile")
+  ) {
+    redirect("/profile?tab=security&forceReset=1");
   }
 
-  // Lazily generate the public handle on first visit; it early-returns
-  // in about one query once set.
   await ensureHandle(session.user.id);
 
   const cookieStore = await cookies();
@@ -43,7 +46,7 @@ const Privatelayout = async ({ children }: LayoutProps) => {
           <PrivateHeader />
           <main
             id="main-content"
-            className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+            className="w-full flex-1 px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </main>
         </SidebarInset>

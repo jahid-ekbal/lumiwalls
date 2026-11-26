@@ -7,9 +7,14 @@ import { toast } from "react-toastify";
 type CopyLinkButtonProps = {
   slug: string;
   size?: "xs" | "sm" | "default";
+  className?: string;
 };
 
-const CopyLinkButton = ({ slug, size = "sm" }: CopyLinkButtonProps) => {
+const CopyLinkButton = ({
+  slug,
+  size = "sm",
+  className,
+}: CopyLinkButtonProps) => {
   const handleCopy = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     const url = `${window.location.origin}/browse?preview=${encodeURIComponent(slug)}`;
@@ -26,6 +31,7 @@ const CopyLinkButton = ({ slug, size = "sm" }: CopyLinkButtonProps) => {
       type="button"
       variant="ghost"
       size={size}
+      className={className}
       onClick={(event) => void handleCopy(event)}>
       <Link2Icon
         data-icon="inline-start"

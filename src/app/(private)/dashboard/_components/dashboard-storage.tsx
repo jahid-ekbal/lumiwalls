@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { formatBytes } from "@/lib/format";
 import {
@@ -14,10 +14,9 @@ import {
   RatioIcon,
   TagIcon,
 } from "lucide-react";
-import { headers } from "next/headers";
 
 const DashboardStorage = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getActiveSession();
 
   if (!session?.user) {
     return null;
@@ -97,7 +96,7 @@ const DashboardStorage = async () => {
   ];
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle>Storage insights</CardTitle>
         <CardDescription>

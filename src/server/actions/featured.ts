@@ -1,23 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireAdminAction } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
+import { recordAdminAuditLog } from "@/lib/security/auditLog";
 import { placementSchema, placementUpdateSchema } from "@/lib/zodSchema";
-
-async function requireAdmin() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.user) {
-    return { authorized: false as const, error: "UNAUTHORIZED" as const };
-  }
-  if (session.user.role !== "admin") {
-    return { authorized: false as const, error: "FORBIDDEN" as const };
-  }
-  return { authorized: true as const, session };
-}
 
 const flagForPlacement = (placement: string): "featured" | "editorsPick" =>
   placement === "TRENDING" ? "editorsPick" : "featured";
@@ -25,17 +12,25 @@ const flagForPlacement = (placement: string): "featured" | "editorsPick" =>
 const placementsOfKind = (kind: "featured" | "editorsPick"): string[] =>
   kind === "featured" ? ["HERO", "SEASONAL"] : ["TRENDING"];
 
-function revalidateFeatured(id?: string) {
+function revalidateFeatured() {
   revalidatePath("/admin/featured");
-  if (id) {
-    revalidatePath(`/admin/featured/${id}`);
-  }
   revalidatePath("/admin/collections");
+  revalidatePath("/admin/audit");
   revalidatePath("/browse");
 }
 
+function isPlacementCurrentlyLive(
+  active: boolean,
+  startAt: Date,
+  endAt: Date | null,
+): boolean {
+  if (!active) return false;
+  const now = Date.now();
+  return startAt.getTime() <= now && (!endAt || endAt.getTime() >= now);
+}
+
 export async function createPlacement(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -55,11 +50,11 @@ export async function createPlacement(input: unknown) {
   const eligible =
     (await prisma.wallpaper.findUnique({
       where: { id: parsed.data.wallpaperId },
-      select: { id: true, isApproved: true, isPublic: true },
+      select: { id: true, title: true, isApproved: true, isPublic: true },
     })) ??
     (await prisma.wallpaper.findUnique({
       where: { slug: parsed.data.wallpaperId },
-      select: { id: true, isApproved: true, isPublic: true },
+      select: { id: true, title: true, isApproved: true, isPublic: true },
     }));
   if (!eligible || !eligible.isApproved || !eligible.isPublic) {
     return { success: false as const, error: "NOT_AVAILABLE" as const };
@@ -78,17 +73,33 @@ export async function createPlacement(input: unknown) {
     select: { id: true },
   });
 
-  await prisma.wallpaper.update({
-    where: { id: eligible.id },
-    data: { [flagForPlacement(parsed.data.placement)]: true },
+  if (
+    isPlacementCurrentlyLive(
+      parsed.data.active ?? true,
+      parsed.data.startAt,
+      parsed.data.endAt ?? null,
+    )
+  ) {
+    await prisma.wallpaper.update({
+      where: { id: eligible.id },
+      data: { [flagForPlacement(parsed.data.placement)]: true },
+    });
+  }
+
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "PLACEMENT_CREATE",
+    targetType: "placement",
+    targetId: placement.id,
+    summary: `Scheduled ${parsed.data.placement} placement for "${eligible.title}"`,
   });
 
-  revalidateFeatured(placement.id);
+  revalidateFeatured();
   return { success: true as const, data: { id: placement.id } };
 }
 
 export async function updatePlacement(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -108,11 +119,11 @@ export async function updatePlacement(input: unknown) {
   const eligible =
     (await prisma.wallpaper.findUnique({
       where: { id: parsed.data.wallpaperId },
-      select: { id: true, isApproved: true, isPublic: true },
+      select: { id: true, title: true, isApproved: true, isPublic: true },
     })) ??
     (await prisma.wallpaper.findUnique({
       where: { slug: parsed.data.wallpaperId },
-      select: { id: true, isApproved: true, isPublic: true },
+      select: { id: true, title: true, isApproved: true, isPublic: true },
     }));
   if (!eligible || !eligible.isApproved || !eligible.isPublic) {
     return { success: false as const, error: "NOT_AVAILABLE" as const };
@@ -138,17 +149,33 @@ export async function updatePlacement(input: unknown) {
     },
   });
 
-  await prisma.wallpaper.update({
-    where: { id: eligible.id },
-    data: { [flagForPlacement(parsed.data.placement)]: true },
+  if (
+    isPlacementCurrentlyLive(
+      parsed.data.active ?? true,
+      parsed.data.startAt,
+      parsed.data.endAt ?? null,
+    )
+  ) {
+    await prisma.wallpaper.update({
+      where: { id: eligible.id },
+      data: { [flagForPlacement(parsed.data.placement)]: true },
+    });
+  }
+
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "PLACEMENT_UPDATE",
+    targetType: "placement",
+    targetId: parsed.data.id,
+    summary: `Updated ${parsed.data.placement} placement for "${eligible.title}"`,
   });
 
-  revalidateFeatured(parsed.data.id);
+  revalidateFeatured();
   return { success: true as const };
 }
 
 export async function expirePlacement(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -175,15 +202,17 @@ export async function expirePlacement(input: unknown) {
     data: { endAt: new Date(), active: false },
   });
 
+  const now = new Date();
   const kind = flagForPlacement(existing.placement);
   const remaining = await prisma.featuredPlacement.count({
     where: {
       wallpaperId: existing.wallpaperId,
       active: true,
+      startAt: { lte: now },
       placement: {
         in: placementsOfKind(kind) as ("HERO" | "TRENDING" | "SEASONAL")[],
       },
-      OR: [{ endAt: null }, { endAt: { gte: new Date() } }],
+      OR: [{ endAt: null }, { endAt: { gte: now } }],
     },
   });
   if (remaining === 0) {
@@ -193,12 +222,20 @@ export async function expirePlacement(input: unknown) {
     });
   }
 
-  revalidateFeatured(existing.id);
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "PLACEMENT_EXPIRE",
+    targetType: "placement",
+    targetId: existing.id,
+    summary: `Expired ${existing.placement} placement ${existing.id}`,
+  });
+
+  revalidateFeatured();
   return { success: true as const };
 }
 
 export async function deletePlacement(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -222,15 +259,17 @@ export async function deletePlacement(input: unknown) {
 
   await prisma.featuredPlacement.delete({ where: { id: existing.id } });
 
+  const now = new Date();
   const kind = flagForPlacement(existing.placement);
   const remaining = await prisma.featuredPlacement.count({
     where: {
       wallpaperId: existing.wallpaperId,
       active: true,
+      startAt: { lte: now },
       placement: {
         in: placementsOfKind(kind) as ("HERO" | "TRENDING" | "SEASONAL")[],
       },
-      OR: [{ endAt: null }, { endAt: { gte: new Date() } }],
+      OR: [{ endAt: null }, { endAt: { gte: now } }],
     },
   });
   if (remaining === 0) {
@@ -239,6 +278,14 @@ export async function deletePlacement(input: unknown) {
       data: { [kind]: false },
     });
   }
+
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "PLACEMENT_DELETE",
+    targetType: "placement",
+    targetId: existing.id,
+    summary: `Deleted ${existing.placement} placement ${existing.id}`,
+  });
 
   revalidateFeatured();
   return { success: true as const };

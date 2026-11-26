@@ -1,25 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { Prisma } from "@generated/prisma/client";
-import { auth } from "@/lib/auth";
+import { requireAdminAction } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
+import { recordAdminAuditLog } from "@/lib/security/auditLog";
 import { slugify } from "@/lib/slugify";
 import { tagCreateSchema, tagUpdateSchema } from "@/lib/zodSchema";
-
-async function requireAdmin() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.user) {
-    return { authorized: false as const, error: "UNAUTHORIZED" as const };
-  }
-  if (session.user.role !== "admin") {
-    return { authorized: false as const, error: "FORBIDDEN" as const };
-  }
-  return { authorized: true as const, session };
-}
 
 function mapUniqueViolation(error: unknown) {
   if (
@@ -38,7 +25,7 @@ function mapUniqueViolation(error: unknown) {
 }
 
 export async function createTag(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -71,13 +58,26 @@ export async function createTag(input: unknown) {
     return { success: false as const, error: "SLUG_EXISTS" as const };
   }
 
+  const description = parsed.data.description?.trim() || null;
+  const color = parsed.data.color?.trim() || null;
+
   try {
     const tag = await prisma.tag.create({
-      data: { name: normalizedName, slug },
+      data: { name: normalizedName, slug, description, color },
+    });
+
+    await recordAdminAuditLog({
+      actorId: authCheck.session.user.id,
+      action: "TAG_CREATE",
+      targetType: "tag",
+      targetId: tag.id,
+      summary: `Created tag #${tag.name}`,
     });
 
     revalidatePath("/admin/tags");
+    revalidatePath("/admin/audit");
     revalidatePath("/upload");
+    revalidatePath("/browse");
     return { success: true as const, data: tag };
   } catch (error) {
     return mapUniqueViolation(error);
@@ -85,7 +85,7 @@ export async function createTag(input: unknown) {
 }
 
 export async function updateTag(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -127,14 +127,27 @@ export async function updateTag(input: unknown) {
     return { success: false as const, error: "SLUG_EXISTS" as const };
   }
 
+  const description = parsed.data.description?.trim() || null;
+  const color = parsed.data.color?.trim() || null;
+
   try {
     const updated = await prisma.tag.update({
       where: { id },
-      data: { name: normalizedName, slug },
+      data: { name: normalizedName, slug, description, color },
+    });
+
+    await recordAdminAuditLog({
+      actorId: authCheck.session.user.id,
+      action: "TAG_UPDATE",
+      targetType: "tag",
+      targetId: updated.id,
+      summary: `Updated tag #${updated.name}`,
     });
 
     revalidatePath("/admin/tags");
+    revalidatePath("/admin/audit");
     revalidatePath("/upload");
+    revalidatePath("/browse");
     return { success: true as const, data: updated };
   } catch (error) {
     return mapUniqueViolation(error);
@@ -142,7 +155,7 @@ export async function updateTag(input: unknown) {
 }
 
 export async function deleteTag(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -159,7 +172,17 @@ export async function deleteTag(input: unknown) {
 
   await prisma.tag.delete({ where: { id } });
 
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "TAG_DELETE",
+    targetType: "tag",
+    targetId: existing.id,
+    summary: `Deleted tag #${existing.name}`,
+  });
+
   revalidatePath("/admin/tags");
+  revalidatePath("/admin/audit");
   revalidatePath("/upload");
+  revalidatePath("/browse");
   return { success: true as const };
 }

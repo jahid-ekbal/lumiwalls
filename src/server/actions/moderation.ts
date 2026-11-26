@@ -1,11 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getActiveSession, requireAdminAction } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { deleteManyFromS3, extractS3Key } from "@/lib/fileStorage";
-import { isPrimaryAdminEmail } from "@/server/admin";
+import { recordAdminAuditLog } from "@/lib/security/auditLog";
+import { consumeRateLimit } from "@/lib/security/rateLimit";
 import {
   banUserSchema,
   bulkReviewSchema,
@@ -14,19 +14,7 @@ import {
   moderationReviewSchema,
   reportResolveSchema,
 } from "@/lib/zodSchema";
-
-async function requireAdmin() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.user) {
-    return { authorized: false as const, error: "UNAUTHORIZED" as const };
-  }
-  if (session.user.role !== "admin") {
-    return { authorized: false as const, error: "FORBIDDEN" as const };
-  }
-  return { authorized: true as const, session };
-}
+import { isPrimaryAdminEmail } from "@/server/admin";
 
 function combineNotes(existing: string | null, next: string): string | null {
   const trimmed = next.trim();
@@ -43,7 +31,7 @@ function combineNotes(existing: string | null, next: string): string | null {
 }
 
 export async function reviewWallpaper(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -99,14 +87,25 @@ export async function reviewWallpaper(input: unknown) {
     }),
   ]);
 
+  await recordAdminAuditLog({
+    actorId: reviewerId,
+    action: `MODERATION_${decision}`,
+    targetType: "wallpaper",
+    targetId: wallpaperId,
+    summary: `${decision === "APPROVED" ? "Approved" : "Rejected"} "${wallpaper.title}"`,
+    ...(reviewNotes.trim() ? { metadata: { notes: reviewNotes.trim() } } : {}),
+  });
+
   revalidatePath("/admin/moderation");
+  revalidatePath("/admin/audit");
   revalidatePath("/admin");
   revalidatePath("/browse");
+  revalidatePath("/upload");
   return { success: true as const };
 }
 
 export async function bulkReviewWallpapers(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -165,14 +164,25 @@ export async function bulkReviewWallpapers(input: unknown) {
     updated += 1;
   }
 
+  await recordAdminAuditLog({
+    actorId: reviewerId,
+    action: `MODERATION_BULK_${decision}`,
+    targetType: "wallpaper",
+    targetId: `${updated} items`,
+    summary: `Bulk ${decision.toLowerCase()} ${updated} wallpaper submissions`,
+    metadata: { count: updated, decision },
+  });
+
   revalidatePath("/admin/moderation");
+  revalidatePath("/admin/audit");
   revalidatePath("/admin");
   revalidatePath("/browse");
+  revalidatePath("/upload");
   return { success: true as const, data: { updated } };
 }
 
 export async function setBan(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -220,14 +230,24 @@ export async function setBan(input: unknown) {
     ...(banned ? [prisma.session.deleteMany({ where: { userId } })] : []),
   ]);
 
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: banned ? "USER_BAN" : "USER_UNBAN",
+    targetType: "user",
+    targetId: userId,
+    summary: `${banned ? "Banned" : "Unbanned"} ${target.email}`,
+    ...(banned ? { metadata: { reason: banReason.trim() } } : {}),
+  });
+
   revalidatePath("/admin/moderation");
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
+  revalidatePath("/admin/audit");
   return { success: true as const };
 }
 
 export async function resolveReport(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -244,6 +264,7 @@ export async function resolveReport(input: unknown) {
   const { reportId, decision, hideWallpaper } = parsed.data;
   const report = await prisma.report.findUnique({
     where: { id: reportId },
+    include: { wallpaper: { select: { title: true } } },
   });
   if (!report) {
     return { success: false as const, error: "NOT_FOUND" as const };
@@ -271,14 +292,23 @@ export async function resolveReport(input: unknown) {
     : []),
   ]);
 
+  await recordAdminAuditLog({
+    actorId: reviewerId,
+    action: `REPORT_${decision}`,
+    targetType: "report",
+    targetId: reportId,
+    summary: `${decision === "RESOLVED" ? "Resolved" : "Dismissed"} report on "${report.wallpaper.title}"${hideWallpaper ? " (wallpaper hidden)" : ""}`,
+  });
+
   revalidatePath("/admin/moderation");
   revalidatePath("/admin/reports");
+  revalidatePath("/admin/audit");
   revalidatePath("/browse");
   return { success: true as const };
 }
 
 export async function hardDeleteWallpaper(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -296,6 +326,7 @@ export async function hardDeleteWallpaper(input: unknown) {
     where: { id: parsed.data.wallpaperId },
     select: {
       id: true,
+      title: true,
       originalUrl: true,
       thumb400Url: true,
       thumb800Url: true,
@@ -318,18 +349,34 @@ export async function hardDeleteWallpaper(input: unknown) {
   }
   await prisma.wallpaper.delete({ where: { id: wallpaper.id } });
 
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "WALLPAPER_HARD_DELETE",
+    targetType: "wallpaper",
+    targetId: wallpaper.id,
+    summary: `Permanently deleted "${wallpaper.title}"`,
+  });
+
   revalidatePath("/admin/moderation");
+  revalidatePath("/admin/audit");
   revalidatePath("/admin");
   revalidatePath("/browse");
   return { success: true as const };
 }
 
 export async function createReport(input: unknown) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getActiveSession();
   if (!session?.user) {
     return { success: false as const, error: "UNAUTHORIZED" as const };
+  }
+
+  const rateCheck = await consumeRateLimit({
+    key: `report:${session.user.id}`,
+    limit: 15,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!rateCheck.allowed) {
+    return { success: false as const, error: "RATE_LIMITED" as const };
   }
 
   const parsed = createReportSchema.safeParse(input);
@@ -382,5 +429,6 @@ export async function createReport(input: unknown) {
 
   revalidatePath("/admin/moderation");
   revalidatePath("/admin/reports");
+  revalidatePath("/dashboard");
   return { success: true as const, data: { id: report.id } };
 }

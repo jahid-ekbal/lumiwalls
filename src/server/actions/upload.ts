@@ -1,29 +1,34 @@
 "use server";
 
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { Prisma } from "@generated/prisma/client";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { serverEnv } from "@/lib/env/serverEnv";
 import {
-  buildKey,
+  buildKeyForFormat,
   deleteManyFromS3,
   extractS3Key,
-  sanitizeFileName,
 } from "@/lib/fileStorage";
+import { consumeRateLimit } from "@/lib/security/rateLimit";
 import { slugify } from "@/lib/slugify";
-import { getOneHourAgo } from "@/lib/uploadExpiry";
 import { s3Client } from "@/lib/storage/b2Client";
+import { formatForMimeType } from "@/lib/storage/fileValidation";
 import { generateThumbsAndUpload } from "@/lib/storage/imageProcessor";
+import {
+  DHASH_DUPLICATE_THRESHOLD,
+  hammingDistanceHex,
+} from "@/lib/storage/perceptualHash";
 import { generatePresignedUploadUrl } from "@/lib/storage/presignedUrl";
+import { getOneHourAgo } from "@/lib/uploadExpiry";
 import {
   MAX_UPLOAD_SIZE,
   deleteOwnWallpaperSchema,
   finalizeUploadSchema,
   initiateUploadSchema,
   updateWallpaperMetadataSchema,
+  wallpaperVisibilitySchema,
 } from "@/lib/zodSchema";
 
 const buildPublicUrl = (key: string): string => {
@@ -70,7 +75,7 @@ const cleanupStaleUploads = async (userId: string): Promise<void> => {
       moderationQueue: { status: "PENDING" },
     },
     select: { id: true, originalUrl: true },
-    take: 20,
+    take: 25,
   });
   for (const row of stale) {
     const keys = row.originalUrl ? [row.originalUrl] : [];
@@ -84,11 +89,12 @@ const buildWallpaperSlug = (title: string): string => {
 };
 
 export async function initiateUpload(input: unknown) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getActiveSession();
   if (!session?.user) {
     return { success: false as const, error: "UNAUTHORIZED" };
+  }
+  if (session.user.mustChangePassword) {
+    return { success: false as const, error: "PASSWORD_CHANGE_REQUIRED" };
   }
 
   const parsed = initiateUploadSchema.safeParse(input);
@@ -105,27 +111,52 @@ export async function initiateUpload(input: unknown) {
     description,
     categoryId,
     tagIds: rawTagIds,
-    fileName,
     mimeType,
+    fileSize,
   } = parsed.data;
   const tagIds = [...new Set(rawTagIds)];
+  const format = formatForMimeType(mimeType);
+  if (!format) {
+    return { success: false as const, error: "VALIDATION_ERROR" };
+  }
+
+  const rateCheck = await consumeRateLimit({
+    key: `initiate-upload:${session.user.id}`,
+    limit: 12,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!rateCheck.allowed) {
+    return { success: false as const, error: "RATE_LIMITED" };
+  }
 
   await cleanupStaleUploads(session.user.id);
 
   const oneHourAgo = getOneHourAgo();
-  const recentCount = await prisma.wallpaper.count({
-    where: {
-      uploaderId: session.user.id,
-      createdAt: { gte: oneHourAgo },
-      thumb400Url: { not: null },
-    },
-  });
-  if (recentCount >= 5) {
+  const [recentTotalCount, unfinalizedCount] = await Promise.all([
+    prisma.wallpaper.count({
+      where: {
+        uploaderId: session.user.id,
+        createdAt: { gte: oneHourAgo },
+      },
+    }),
+    prisma.wallpaper.count({
+      where: {
+        uploaderId: session.user.id,
+        thumb400Url: null,
+      },
+    }),
+  ]);
+
+  if (recentTotalCount >= 5) {
+    return { success: false as const, error: "RATE_LIMITED" };
+  }
+  if (unfinalizedCount >= 5) {
     return { success: false as const, error: "RATE_LIMITED" };
   }
 
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
+    select: { id: true },
   });
   if (!category) {
     return { success: false as const, error: "INVALID_CATEGORY" };
@@ -141,8 +172,7 @@ export async function initiateUpload(input: unknown) {
     }
   }
 
-  const sanitized = sanitizeFileName(fileName);
-  const keys = buildKey(session.user.id, sanitized);
+  const keys = buildKeyForFormat(session.user.id, format);
 
   let wallpaper: { id: string; slug: string };
   try {
@@ -192,6 +222,7 @@ export async function initiateUpload(input: unknown) {
     const { url, key } = await generatePresignedUploadUrl(
       keys.original,
       mimeType,
+      fileSize,
     );
     return {
       success: true as const,
@@ -210,9 +241,7 @@ export async function initiateUpload(input: unknown) {
 }
 
 export async function finalizeUpload(input: unknown) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getActiveSession();
   if (!session?.user) {
     return { success: false as const, error: "UNAUTHORIZED" };
   }
@@ -264,6 +293,23 @@ export async function finalizeUpload(input: unknown) {
     return { success: false as const, error: "KEY_MISMATCH" };
   }
 
+  try {
+    const head = await s3Client.send(
+      new HeadObjectCommand({
+        Bucket: serverEnv.S3_BUCKET_NAME,
+        Key: key,
+      }),
+    );
+    const contentLength = head.ContentLength ?? 0;
+    if (contentLength < 1 || contentLength > MAX_UPLOAD_SIZE) {
+      await deleteWallpaperOrphan(wallpaperId, [key]);
+      return { success: false as const, error: "FILE_TOO_LARGE" };
+    }
+  } catch {
+    await deleteWallpaperOrphan(wallpaperId, [key]);
+    return { success: false as const, error: "OBJECT_NOT_FOUND" };
+  }
+
   let objectBuffer: Buffer;
   try {
     const command = new GetObjectCommand({
@@ -290,20 +336,14 @@ export async function finalizeUpload(input: unknown) {
     return { success: false as const, error: "FILE_TOO_LARGE" };
   }
 
-  let processed: {
-    blurDataUrl: string;
-    metadata: {
-      width: number;
-      height: number;
-      format: string;
-      fileSize: number;
-    };
-    aspectRatio: string;
-  };
-
+  let processed: Awaited<ReturnType<typeof generateThumbsAndUpload>>;
   try {
     processed = await generateThumbsAndUpload(objectBuffer, thumbKeys);
   } catch (error) {
+    console.error("Wallpaper processing failed", {
+      wallpaperId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     await deleteWallpaperOrphan(wallpaperId, [
       key,
       thumbKeys.thumb400,
@@ -313,7 +353,6 @@ export async function finalizeUpload(input: unknown) {
     return {
       success: false as const,
       error: "PROCESSING_FAILED",
-      details: error instanceof Error ? error.message : String(error),
     };
   }
 
@@ -341,10 +380,13 @@ export async function finalizeUpload(input: unknown) {
           processed.metadata.width && processed.metadata.height ?
             processed.metadata.width / processed.metadata.height
           : null,
+        dominantColors: processed.dominantColors,
+        pHash: processed.pHash,
       },
     });
   } catch {
     await deleteManyFromS3([
+      key,
       thumbKeys.thumb400,
       thumbKeys.thumb800,
       thumbKeys.thumb1920,
@@ -357,21 +399,38 @@ export async function finalizeUpload(input: unknown) {
       where: {
         pHash: { not: null },
         id: { not: wallpaperId },
+        thumb400Url: { not: null },
       },
-      select: { pHash: true },
-      take: 100,
+      select: { id: true, slug: true, title: true, pHash: true },
+      orderBy: { createdAt: "desc" },
+      take: 400,
     });
 
-    const isDuplicate = existingWithHash.some((w) => w.pHash === updated.pHash);
-    if (isDuplicate && wallpaper.moderationQueue) {
+    const matches = existingWithHash
+      .filter(
+        (candidate) =>
+          candidate.pHash &&
+          hammingDistanceHex(updated.pHash!, candidate.pHash) <=
+            DHASH_DUPLICATE_THRESHOLD,
+      )
+      .slice(0, 3);
+
+    if (matches.length > 0 && wallpaper.moderationQueue) {
+      const matchSummary = matches
+        .map((match) => `${match.title} (${match.slug})`)
+        .join(", ");
       await prisma.moderationQueue.update({
         where: { wallpaperId },
         data: {
-          reviewNotes: "Flagged as potential duplicate (pHash match)",
+          reviewNotes: `Potential visual duplicate (dHash <= ${DHASH_DUPLICATE_THRESHOLD}): ${matchSummary}`,
         },
       });
     }
   }
+
+  revalidatePath("/upload");
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/moderation");
 
   return {
     success: true as const,
@@ -387,9 +446,7 @@ export async function finalizeUpload(input: unknown) {
 }
 
 export async function updateWallpaperMetadata(input: unknown) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getActiveSession();
   if (!session?.user) {
     return { success: false as const, error: "UNAUTHORIZED" };
   }
@@ -479,6 +536,7 @@ export async function updateWallpaperMetadata(input: unknown) {
   ]);
 
   revalidatePath("/upload");
+  revalidatePath(`/upload/${wallpaperId}/edit`);
   revalidatePath("/browse");
   revalidatePath("/profile");
   revalidatePath("/dashboard");
@@ -486,10 +544,50 @@ export async function updateWallpaperMetadata(input: unknown) {
   return { success: true as const };
 }
 
-export async function deleteOwnWallpaper(input: unknown) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
+export async function setOwnWallpaperVisibility(input: unknown) {
+  const session = await getActiveSession();
+  if (!session?.user) {
+    return { success: false as const, error: "UNAUTHORIZED" };
+  }
+
+  const parsed = wallpaperVisibilitySchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: "VALIDATION_ERROR",
+      issues: parsed.error.issues,
+    };
+  }
+
+  const wallpaper = await prisma.wallpaper.findUnique({
+    where: { id: parsed.data.wallpaperId },
+    select: { id: true, uploaderId: true, isApproved: true },
   });
+  if (!wallpaper) {
+    return { success: false as const, error: "NOT_FOUND" };
+  }
+  if (wallpaper.uploaderId !== session.user.id) {
+    return { success: false as const, error: "FORBIDDEN" };
+  }
+  if (!wallpaper.isApproved) {
+    return { success: false as const, error: "NOT_APPROVED" };
+  }
+
+  await prisma.wallpaper.update({
+    where: { id: wallpaper.id },
+    data: { isPublic: parsed.data.isPublic },
+  });
+
+  revalidatePath("/upload");
+  revalidatePath(`/upload/${wallpaper.id}/edit`);
+  revalidatePath("/browse");
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  return { success: true as const };
+}
+
+export async function deleteOwnWallpaper(input: unknown) {
+  const session = await getActiveSession();
   if (!session?.user) {
     return { success: false as const, error: "UNAUTHORIZED" };
   }

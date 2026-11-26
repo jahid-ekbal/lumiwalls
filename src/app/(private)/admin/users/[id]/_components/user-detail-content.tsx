@@ -1,8 +1,7 @@
 import UserDetailClient from "@/components/Admin/UserDetailClient";
-import { auth } from "@/lib/auth";
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { isPrimaryAdminEmail } from "@/server/admin";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 type Props = {
@@ -10,7 +9,7 @@ type Props = {
 };
 
 const UserDetailContent = async ({ userId }: Props) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await requireAdminUser();
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -23,6 +22,7 @@ const UserDetailContent = async ({ userId }: Props) => {
       banReason: true,
       banExpires: true,
       emailVerified: true,
+      mustChangePassword: true,
       createdAt: true,
       _count: { select: { wallpapers: true } },
     },
@@ -57,7 +57,7 @@ const UserDetailContent = async ({ userId }: Props) => {
 
   return (
     <UserDetailClient
-      currentUserId={session?.user.id ?? ""}
+      currentUserId={session.user.id}
       isProtected={isPrimaryAdminEmail(user.email)}
       user={{
         id: user.id,
@@ -69,6 +69,7 @@ const UserDetailContent = async ({ userId }: Props) => {
         banReason: user.banReason,
         banExpires: user.banExpires?.toISOString() ?? null,
         emailVerified: user.emailVerified,
+        mustChangePassword: user.mustChangePassword,
         createdAt: user.createdAt.toISOString(),
         wallpaperCount: user._count.wallpapers,
         pendingCount,
@@ -84,6 +85,7 @@ const UserDetailContent = async ({ userId }: Props) => {
         isApproved: item.isApproved,
         createdAt: item.createdAt.toISOString(),
         queueStatus: item.moderationQueue?.status ?? null,
+        reviewNotes: item.moderationQueue?.reviewNotes ?? null,
       }))}
     />
   );

@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireAdminAction } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
+import { recordAdminAuditLog } from "@/lib/security/auditLog";
 import { slugify } from "@/lib/slugify";
 import {
   collectionCreateSchema,
@@ -13,29 +13,20 @@ import {
   wallpaperFlagsSchema,
 } from "@/lib/zodSchema";
 
-async function requireAdmin() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.user) {
-    return { authorized: false as const, error: "UNAUTHORIZED" as const };
-  }
-  if (session.user.role !== "admin") {
-    return { authorized: false as const, error: "FORBIDDEN" as const };
-  }
-  return { authorized: true as const, session };
-}
-
-function revalidateCollections(id?: string) {
+function revalidateCollections(id?: string, slug?: string) {
   revalidatePath("/admin/collections");
   if (id) {
     revalidatePath(`/admin/collections/${id}`);
+  }
+  revalidatePath("/collections");
+  if (slug) {
+    revalidatePath(`/collections/${slug}`);
   }
   revalidatePath("/browse");
 }
 
 export async function createCollection(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -67,18 +58,29 @@ export async function createCollection(input: unknown) {
       slug,
       description: parsed.data.description?.trim() || null,
       active: parsed.data.active ?? true,
+      isCurated: true,
+      isPublicToMembers: parsed.data.active ?? true,
       sortOrder: parsed.data.sortOrder ?? 0,
       curatorId: authCheck.session.user.id,
     },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
 
-  revalidateCollections(collection.id);
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "COLLECTION_CREATE",
+    targetType: "collection",
+    targetId: collection.id,
+    summary: `Created curated collection "${parsed.data.title.trim()}"`,
+  });
+
+  revalidateCollections(collection.id, collection.slug);
+  revalidatePath("/admin/audit");
   return { success: true as const, data: { id: collection.id } };
 }
 
 export async function updateCollection(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -106,7 +108,7 @@ export async function updateCollection(input: unknown) {
 
   const existing = await prisma.collection.findUnique({
     where: { id: parsed.data.id },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
   if (!existing) {
     return { success: false as const, error: "NOT_FOUND" as const };
@@ -119,16 +121,26 @@ export async function updateCollection(input: unknown) {
       slug,
       description: parsed.data.description?.trim() || null,
       active: parsed.data.active ?? true,
+      isPublicToMembers: parsed.data.active ?? true,
       sortOrder: parsed.data.sortOrder ?? 0,
     },
   });
 
-  revalidateCollections(parsed.data.id);
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "COLLECTION_UPDATE",
+    targetType: "collection",
+    targetId: parsed.data.id,
+    summary: `Updated collection "${parsed.data.title.trim()}"`,
+  });
+
+  revalidateCollections(parsed.data.id, slug);
+  revalidatePath("/admin/audit");
   return { success: true as const };
 }
 
 export async function deleteCollection(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -144,7 +156,7 @@ export async function deleteCollection(input: unknown) {
 
   const existing = await prisma.collection.findUnique({
     where: { id: parsed.data.id },
-    select: { id: true },
+    select: { id: true, title: true, slug: true },
   });
   if (!existing) {
     return { success: false as const, error: "NOT_FOUND" as const };
@@ -152,12 +164,21 @@ export async function deleteCollection(input: unknown) {
 
   await prisma.collection.delete({ where: { id: parsed.data.id } });
 
-  revalidateCollections();
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "COLLECTION_DELETE",
+    targetType: "collection",
+    targetId: existing.id,
+    summary: `Deleted collection "${existing.title}"`,
+  });
+
+  revalidateCollections(undefined, existing.slug);
+  revalidatePath("/admin/audit");
   return { success: true as const };
 }
 
 export async function addCollectionItem(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -173,7 +194,7 @@ export async function addCollectionItem(input: unknown) {
 
   const collection = await prisma.collection.findUnique({
     where: { id: parsed.data.collectionId },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
   if (!collection) {
     return { success: false as const, error: "COLLECTION_NOT_FOUND" as const };
@@ -220,12 +241,12 @@ export async function addCollectionItem(input: unknown) {
     },
   });
 
-  revalidateCollections(parsed.data.collectionId);
+  revalidateCollections(parsed.data.collectionId, collection.slug);
   return { success: true as const };
 }
 
 export async function removeCollectionItem(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -253,7 +274,7 @@ export async function removeCollectionItem(input: unknown) {
 }
 
 export async function reorderCollectionItems(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -297,7 +318,7 @@ export async function reorderCollectionItems(input: unknown) {
 }
 
 export async function setCollectionCover(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -313,12 +334,26 @@ export async function setCollectionCover(input: unknown) {
     };
   }
 
+  const collection = await prisma.collection.findUnique({
+    where: { id: parsed.data.collectionId },
+    select: { id: true, slug: true },
+  });
+  if (!collection) {
+    return { success: false as const, error: "NOT_FOUND" as const };
+  }
+
   const wallpaper = await prisma.wallpaper.findUnique({
     where: { id: parsed.data.wallpaperId },
-    select: { thumb800Url: true, thumb400Url: true, originalUrl: true },
+    select: {
+      isApproved: true,
+      isPublic: true,
+      thumb800Url: true,
+      thumb400Url: true,
+      originalUrl: true,
+    },
   });
-  if (!wallpaper) {
-    return { success: false as const, error: "NOT_FOUND" as const };
+  if (!wallpaper || !wallpaper.isApproved || !wallpaper.isPublic) {
+    return { success: false as const, error: "NOT_AVAILABLE" as const };
   }
 
   const cover =
@@ -328,12 +363,12 @@ export async function setCollectionCover(input: unknown) {
     data: { coverUrl: cover },
   });
 
-  revalidateCollections(parsed.data.collectionId);
+  revalidateCollections(parsed.data.collectionId, collection.slug);
   return { success: true as const };
 }
 
 export async function setWallpaperFlags(input: unknown) {
-  const authCheck = await requireAdmin();
+  const authCheck = await requireAdminAction();
   if (!authCheck.authorized) {
     return { success: false as const, error: authCheck.error };
   }
@@ -349,7 +384,7 @@ export async function setWallpaperFlags(input: unknown) {
 
   const wallpaper = await prisma.wallpaper.findUnique({
     where: { id: parsed.data.wallpaperId },
-    select: { id: true, isApproved: true, isPublic: true },
+    select: { id: true, title: true, isApproved: true, isPublic: true },
   });
   if (!wallpaper || !wallpaper.isApproved || !wallpaper.isPublic) {
     return { success: false as const, error: "NOT_AVAILABLE" as const };
@@ -363,8 +398,50 @@ export async function setWallpaperFlags(input: unknown) {
     },
   });
 
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "WALLPAPER_FLAGS_UPDATE",
+    targetType: "wallpaper",
+    targetId: wallpaper.id,
+    summary: `Updated flags on "${wallpaper.title}" (featured=${parsed.data.featured}, editorsPick=${parsed.data.editorsPick})`,
+  });
+
   revalidatePath("/admin/collections");
   revalidatePath("/admin/featured");
+  revalidatePath("/admin/audit");
   revalidatePath("/browse");
   return { success: true as const };
+}
+
+export async function searchApprovedWallpapers(query: string) {
+  const authCheck = await requireAdminAction();
+  if (!authCheck.authorized) {
+    return { success: false as const, error: authCheck.error, items: [] };
+  }
+
+  const trimmed = query.trim();
+  const items = await prisma.wallpaper.findMany({
+    where: {
+      isApproved: true,
+      isPublic: true,
+      ...(trimmed ?
+        {
+          OR: [
+            { title: { contains: trimmed, mode: "insensitive" } },
+            { slug: { contains: trimmed, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      thumb400Url: true,
+    },
+  });
+
+  return { success: true as const, items };
 }

@@ -1,15 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { Prisma } from "@generated/prisma/client";
+import { getActiveSession } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { browseDownloadSchema } from "@/lib/zodSchema";
 
 export async function toggleFavorite(input: unknown) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getActiveSession();
   if (!session?.user) {
     return { success: false as const, error: "UNAUTHORIZED" as const };
   }
@@ -35,6 +33,7 @@ export async function toggleFavorite(input: unknown) {
     return { success: false as const, error: "NOT_FOUND" as const };
   }
 
+  let favorited = false;
   const existing = await prisma.favorite.findUnique({
     where: {
       userId_wallpaperId: {
@@ -46,21 +45,47 @@ export async function toggleFavorite(input: unknown) {
   });
 
   if (existing) {
-    await prisma.favorite.delete({
-      where: {
-        userId_wallpaperId: {
+    try {
+      await prisma.favorite.delete({
+        where: {
+          userId_wallpaperId: {
+            userId: session.user.id,
+            wallpaperId: wallpaper.id,
+          },
+        },
+      });
+      favorited = false;
+    } catch (error) {
+      if (
+        !(
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2025"
+        )
+      ) {
+        throw error;
+      }
+      favorited = false;
+    }
+  } else {
+    try {
+      await prisma.favorite.create({
+        data: {
           userId: session.user.id,
           wallpaperId: wallpaper.id,
         },
-      },
-    });
-  } else {
-    await prisma.favorite.create({
-      data: {
-        userId: session.user.id,
-        wallpaperId: wallpaper.id,
-      },
-    });
+      });
+      favorited = true;
+    } catch (error) {
+      if (
+        !(
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        )
+      ) {
+        throw error;
+      }
+      favorited = true;
+    }
   }
 
   const favoriteCount = await prisma.favorite.count({
@@ -68,10 +93,11 @@ export async function toggleFavorite(input: unknown) {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/profile");
 
   return {
     success: true as const,
-    favorited: !existing,
+    favorited,
     favoriteCount,
   };
 }

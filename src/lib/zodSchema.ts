@@ -159,6 +159,13 @@ export const tagCreateSchema = z.object({
     })
     .optional()
     .or(z.literal("")),
+  description: z.string().trim().max(300).optional().or(z.literal("")),
+  color: z
+    .string()
+    .trim()
+    .regex(hexColorRegex, { error: "Color must be hex like #RRGGBB" })
+    .optional()
+    .or(z.literal("")),
 });
 
 export type TagCreateType = z.infer<typeof tagCreateSchema>;
@@ -179,6 +186,10 @@ export const browseSortSchema = z.enum([
 
 export type BrowseSortType = z.infer<typeof browseSortSchema>;
 
+export const browseFeedSchema = z.enum(["all", "following"]);
+
+export type BrowseFeedType = z.infer<typeof browseFeedSchema>;
+
 export const browseSearchParamsSchema = z.object({
   q: z.string().trim().max(100).optional().default(""),
   category: z.string().trim().max(40).optional().default("all"),
@@ -192,6 +203,7 @@ export const browseSearchParamsSchema = z.object({
     .optional()
     .default("any"),
   featured: z.enum(["any", "featured"]).optional().default("any"),
+  feed: browseFeedSchema.optional().default("all"),
   colors: z
     .array(z.coerce.number().int().min(0).max(11))
     .max(6)
@@ -206,6 +218,7 @@ export type BrowseSearchParamsType = z.infer<typeof browseSearchParamsSchema>;
 
 export const browseDownloadSchema = z.object({
   wallpaperId: z.string().min(1),
+  variant: z.enum(["400", "800", "1920", "original"]).optional().default("original"),
 });
 
 export type BrowseDownloadType = z.infer<typeof browseDownloadSchema>;
@@ -506,3 +519,108 @@ export const profilePasswordSchema = z
   });
 
 export type ProfilePasswordType = z.infer<typeof profilePasswordSchema>;
+
+
+// ── Personal Boards & Curated Collections ────────────
+const RESERVED_HANDLES = new Set([
+  "admin",
+  "api",
+  "browse",
+  "collections",
+  "dashboard",
+  "forgot-password",
+  "profile",
+  "settings",
+  "sign-in",
+  "sign-up",
+  "u",
+  "upload",
+]);
+
+export const collectionsDirectoryParamsSchema = z.object({
+  tab: z.enum(["curated", "mine"]).optional().default("curated"),
+  q: z.string().trim().max(100).optional().default(""),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type CollectionsDirectoryParamsType = z.infer<
+  typeof collectionsDirectoryParamsSchema
+>;
+
+export const personalBoardCreateSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(2, { error: "Board title must be at least 2 characters" })
+    .max(80, { error: "Board title must not exceed 80 characters" }),
+  description: z.string().trim().max(500).optional().or(z.literal("")),
+  isPublicToMembers: z.boolean().optional().default(true),
+});
+
+export type PersonalBoardCreateType = z.infer<typeof personalBoardCreateSchema>;
+
+export const personalBoardUpdateSchema = personalBoardCreateSchema.extend({
+  id: z.cuid(),
+});
+
+export type PersonalBoardUpdateType = z.infer<typeof personalBoardUpdateSchema>;
+
+export const boardToggleItemSchema = z.object({
+  collectionId: z.string().min(1),
+  wallpaperId: z.string().min(1),
+});
+
+export type BoardToggleItemType = z.infer<typeof boardToggleItemSchema>;
+
+// ── Account Lifecycle & Admin Password Reset ─────────
+export const profileHandleSchema = z.object({
+  handle: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3, { error: "Handle must be at least 3 characters" })
+    .max(36, { error: "Handle must not exceed 36 characters" })
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+      error: "Handle may contain lowercase letters, numbers, and single hyphens",
+    })
+    .refine((value) => !RESERVED_HANDLES.has(value), {
+      error: "That handle is reserved",
+    }),
+});
+
+export type ProfileHandleType = z.infer<typeof profileHandleSchema>;
+
+export const clearProfileImageSchema = z.object({
+  kind: z.enum(["avatar", "banner"]),
+});
+
+export type ClearProfileImageType = z.infer<typeof clearProfileImageSchema>;
+
+export const deleteOwnAccountSchema = z.object({
+  password: z.string().min(1, { error: "Enter your password to confirm" }),
+  confirmation: z
+    .string()
+    .trim()
+    .refine((val) => val.toUpperCase() === "DELETE", {
+      error: "Type DELETE to confirm account removal",
+    }),
+});
+
+export type DeleteOwnAccountType = z.infer<typeof deleteOwnAccountSchema>;
+
+export const adminResetPasswordSchema = z.object({
+  userId: z.string().min(1),
+});
+
+export type AdminResetPasswordType = z.infer<typeof adminResetPasswordSchema>;
+
+// ── Audit Log (admin) ─────────────────────────────────
+export const auditLogSearchParamsSchema = z.object({
+  q: z.string().trim().max(100).optional().default(""),
+  action: z.string().trim().max(64).optional().default("all"),
+  page: z.coerce.number().int().min(1).max(1000).optional().default(1),
+});
+
+export type AuditLogSearchParamsType = z.infer<
+  typeof auditLogSearchParamsSchema
+>;

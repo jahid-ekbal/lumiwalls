@@ -1,23 +1,29 @@
 import PageHeader from "@/components/UI/PageHeader";
 import StatusBadge, { deriveWallpaperStatus } from "@/components/UI/StatusBadge";
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/shadcnui/alert";
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/shadcnui/card";
-import { auth } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { formatDate } from "@/lib/format";
 import { toImagePath } from "@/lib/imageUrl";
 import { createMetadata } from "@/lib/metadata";
-import { ImagesIcon } from "lucide-react";
+import { AlertCircleIcon, ImagesIcon } from "lucide-react";
 import type { Route } from "next";
-import { headers } from "next/headers";
 import Image from "next/image";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import EditWallpaperForm from "./_components/edit-wallpaper-form";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = createMetadata({
   title: "Edit upload",
@@ -29,11 +35,7 @@ type EditWallpaperPageProps = {
 };
 
 const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session) {
-    redirect("/");
-  }
+  const { user } = await requireActiveUser();
 
   const { id } = await params;
 
@@ -54,7 +56,7 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
         originalUrl: true,
         blurDataUrl: true,
         moderationQueue: {
-          select: { status: true },
+          select: { status: true, reviewNotes: true },
         },
         tags: {
           select: { tagId: true },
@@ -65,7 +67,7 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
     prisma.tag.findMany({ orderBy: { name: "asc" } }),
   ]);
 
-  if (!wallpaper || wallpaper.uploaderId !== session.user.id) {
+  if (!wallpaper || wallpaper.uploaderId !== user.id) {
     notFound();
   }
 
@@ -74,13 +76,15 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
     moderationStatus: wallpaper.moderationQueue?.status,
   });
 
+  const reviewNotes = wallpaper.moderationQueue?.reviewNotes?.trim() || null;
+
   const src = toImagePath(
     wallpaper.thumb400Url ?? wallpaper.thumb800Url ?? wallpaper.originalUrl,
   );
   const isOptimizable = wallpaper.isApproved && wallpaper.isPublic;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid w-full gap-6">
       <PageHeader
         eyebrow="Submissions"
         title="Edit upload"
@@ -88,6 +92,14 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
         backHref={"/upload" as Route}
         backLabel="Back to my uploads"
       />
+
+      {status === "REJECTED" && reviewNotes ?
+        <Alert variant="destructive">
+          <AlertCircleIcon className="size-4" />
+          <AlertTitle>Moderation feedback</AlertTitle>
+          <AlertDescription>{reviewNotes}</AlertDescription>
+        </Alert>
+      : null}
 
       <div className="grid items-start gap-6 lg:grid-cols-12">
         <Card className="gap-0 overflow-hidden py-0 lg:col-span-4">
@@ -109,7 +121,6 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
                   alt={wallpaper.title}
                   className="absolute inset-0 size-full object-cover"
                 />
-
             : <div className="text-muted-foreground flex size-full items-center justify-center">
                 <ImagesIcon className="size-10" />
               </div>
@@ -132,27 +143,29 @@ const EditWallpaperPage = async ({ params }: EditWallpaperPageProps) => {
           </CardContent>
         </Card>
 
-          <Card className="lg:col-span-8">
-            <CardHeader>
-              <CardTitle>Wallpaper details</CardTitle>
-              <CardDescription>
-                Title, description, category, and tags
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EditWallpaperForm
-                wallpaperId={wallpaper.id}
-                initialTitle={wallpaper.title}
-                initialDescription={wallpaper.description ?? ""}
-                initialCategoryId={wallpaper.categoryId ?? ""}
-                initialTagIds={wallpaper.tags.map((tag) => tag.tagId)}
-                categories={categories}
-                tags={tags}
-              />
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="lg:col-span-8">
+          <CardHeader>
+            <CardTitle>Wallpaper details</CardTitle>
+            <CardDescription>
+              Title, description, category, tags, and gallery visibility
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EditWallpaperForm
+              wallpaperId={wallpaper.id}
+              initialTitle={wallpaper.title}
+              initialDescription={wallpaper.description ?? ""}
+              initialCategoryId={wallpaper.categoryId ?? ""}
+              initialTagIds={wallpaper.tags.map((tag) => tag.tagId)}
+              isApproved={wallpaper.isApproved}
+              initialIsPublic={wallpaper.isPublic}
+              categories={categories}
+              tags={tags}
+            />
+          </CardContent>
+        </Card>
       </div>
+    </div>
   );
 };
 

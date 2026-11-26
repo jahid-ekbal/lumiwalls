@@ -1,15 +1,13 @@
 import PageHeader from "@/components/UI/PageHeader";
 import { buttonVariants } from "@/components/shadcnui/button";
-import { auth } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { createMetadata } from "@/lib/metadata";
 import { uploadSearchParamsSchema } from "@/lib/zodSchema";
 import { Prisma } from "@generated/prisma/client";
 import { UploadIcon } from "lucide-react";
 import type { Route } from "next";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import UploadCard from "./_components/upload-card";
 import UploadEmpty from "./_components/upload-empty";
 import UploadPagination from "./_components/upload-pagination";
@@ -29,11 +27,7 @@ type UploadPageProps = {
 };
 
 const UploadPage = async ({ searchParams }: UploadPageProps) => {
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session) {
-    redirect("/");
-  }
+  const { user } = await requireActiveUser();
 
   const raw = await searchParams;
   const parsed = uploadSearchParamsSchema.safeParse(raw);
@@ -106,7 +100,7 @@ const UploadPage = async ({ searchParams }: UploadPageProps) => {
       width: true,
       height: true,
       moderationQueue: {
-        select: { status: true },
+        select: { status: true, reviewNotes: true },
       },
     },
   });

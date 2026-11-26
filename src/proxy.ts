@@ -3,47 +3,46 @@ import { NextResponse } from "next/server";
 
 const PUBLIC_ROUTES = ["/", "/sign-up", "/forgot-password"];
 
-// Open prefixes: viewable while signed in or out, no redirect either way.
-const OPEN_PATH_PREFIXES = ["/u/"];
-
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname === route);
-  const isOpenPath = OPEN_PATH_PREFIXES.some((prefix) =>
-    pathname.startsWith(prefix),
-  );
-
-  const isApiAuthRoute = pathname.startsWith("/api/auth");
-
-  // Allow API auth routes through (they need to handle their own auth)
-  if (isApiAuthRoute) {
+  if (
+    pathname.startsWith("/api/auth") ||
+    pathname === "/api/health" ||
+    pathname.startsWith("/api/images")
+  ) {
     return NextResponse.next();
   }
 
-  // Check session cookie directly; no self-referential fetch needed
+  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname === route);
+
   const sessionCookie =
     request.cookies.get("cit.session_token")?.value ??
     request.cookies.get("__Secure-cit.session_token")?.value;
 
-  const isAuthenticated = !!sessionCookie;
+  const hasCookie = Boolean(sessionCookie);
 
-  // Redirect authenticated users away from public routes to /browse
-  if (isAuthenticated && isPublicRoute) {
-    return NextResponse.redirect(new URL("/browse", request.url));
+  if (!hasCookie && !isPublicRoute) {
+    const signInUrl = new URL("/", request.url);
+    const target = `${pathname}${search}`;
+    if (target.startsWith("/") && !target.startsWith("//") && target !== "/") {
+      signInUrl.searchParams.set("callbackUrl", target);
+    }
+    return NextResponse.redirect(signInUrl);
   }
 
-  // Redirect unauthenticated users to sign-in (open paths stay public)
-  if (!isAuthenticated && !isPublicRoute && !isOpenPath) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 export const config = {
   matcher: [
-    // Match all routes except static files, _next, etc.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif)$).*)",
   ],
 };

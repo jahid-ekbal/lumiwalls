@@ -1,5 +1,6 @@
 import PageHeader from "@/components/UI/PageHeader";
 import { buttonVariants } from "@/components/shadcnui/button";
+import { requireAdminUser } from "@/lib/auth/session";
 import { createMetadata } from "@/lib/metadata";
 import { ArrowRightIcon } from "lucide-react";
 import type { Route } from "next";
@@ -26,7 +27,9 @@ export const metadata = createMetadata({
   description: "Admin dashboard overview on Lumiwalls",
 });
 
-const AdminDashboardPage = () => {
+const AdminDashboardPage = async () => {
+  await requireAdminUser();
+
   return (
     <div className="grid gap-6">
       <PageHeader
