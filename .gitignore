@@ -48,3 +48,6 @@ prisma/*.db
 prisma/*.db-journal
 *.log
 .neon
+
+# AI Skills
+.agents
