@@ -39,7 +39,12 @@ import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
+import {
+  parseAsInteger,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryState,
+} from "nuqs";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "react-toastify";
@@ -90,11 +95,13 @@ const CollectionsDirectoryClient = ({
   const [, setQ] = useQueryState("q", qParser);
   const [, setPage] = useQueryState("page", pageParser);
   const [searchInput, setSearchInput] = useState(q);
+  const [lastQ, setLastQ] = useState(q);
   const [createOpen, setCreateOpen] = useState(false);
 
-  useEffect(() => {
+  if (q !== lastQ) {
+    setLastQ(q);
     setSearchInput(q);
-  }, [q]);
+  }
 
   useEffect(() => {
     if (searchInput === q) return;
@@ -136,7 +143,7 @@ const CollectionsDirectoryClient = ({
   return (
     <div className="grid w-full gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="border-border/60 bg-card/50 flex w-fit flex-wrap gap-1 rounded-control border p-1">
+        <div className="border-border/60 bg-card/50 rounded-control flex w-fit flex-wrap gap-1 border p-1">
           <Button
             type="button"
             size="sm"
@@ -233,7 +240,7 @@ const CollectionsDirectoryClient = ({
               <Link
                 key={collection.id}
                 href={`/collections/${collection.slug}` as Route}
-                className="group border-border/70 bg-card hover:border-foreground/30 flex h-full flex-col overflow-hidden rounded-inset border transition-colors">
+                className="group border-border/70 bg-card hover:border-foreground/30 rounded-inset flex h-full flex-col overflow-hidden border transition-colors">
                 <div className="bg-muted/40 relative aspect-16/9 w-full overflow-hidden">
                   {coverSrc ?
                     <Image
@@ -241,7 +248,7 @@ const CollectionsDirectoryClient = ({
                       alt={collection.title}
                       fill={true}
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      className="object-cover transition-transform duration-base motion-safe:group-hover:scale-[1.03]"
+                      className="duration-base object-cover transition-transform motion-safe:group-hover:scale-[1.03]"
                     />
                   : <div className="flex size-full items-center justify-center">
                       <FolderHeartIcon className="text-muted-foreground size-7" />
@@ -303,7 +310,7 @@ const CollectionsDirectoryClient = ({
         <Pagination
           page={page}
           totalPages={totalPages}
-          createHref={(targetPage) =>
+          buildHref={(targetPage: number) =>
             `/collections?tab=${tab}&q=${encodeURIComponent(q)}&page=${targetPage}` as Route
           }
         />
@@ -369,7 +376,7 @@ const CollectionsDirectoryClient = ({
               name="isPublicToMembers"
               control={control}
               render={({ field }) => (
-                <div className="border-border/60 flex items-center justify-between gap-3 rounded-inset border p-3">
+                <div className="border-border/60 rounded-inset flex items-center justify-between gap-3 border p-3">
                   <div className="grid gap-0.5">
                     <span className="text-sm font-medium">
                       Visible to members

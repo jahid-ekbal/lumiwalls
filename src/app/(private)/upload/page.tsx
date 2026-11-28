@@ -35,7 +35,7 @@ const UploadPage = async ({ searchParams }: UploadPageProps) => {
     parsed.success ? parsed.data : uploadSearchParamsSchema.parse({});
 
   const baseWhere = {
-    uploaderId: session.user.id,
+    uploaderId: user.id,
     thumb400Url: { not: null },
   } satisfies Prisma.WallpaperWhereInput;
 
@@ -121,28 +121,28 @@ const UploadPage = async ({ searchParams }: UploadPageProps) => {
         }
       />
 
-        <UploadStatusTabs
-          active={status}
-          counts={counts}
-        />
+      <UploadStatusTabs
+        active={status}
+        counts={counts}
+      />
 
-        {wallpapers.length === 0 ?
-          <UploadEmpty filtered={status !== "all"} />
-        : <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {wallpapers.map((wallpaper) => (
-                <UploadCard
-                  key={wallpaper.id}
-                  wallpaper={wallpaper}
-                />
-              ))}
-            </div>
-            <UploadPagination
-              page={page}
-              totalPages={totalPages}
-              status={status}
-            />
-          </>
+      {wallpapers.length === 0 ?
+        <UploadEmpty filtered={status !== "all"} />
+      : <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {wallpapers.map((wallpaper) => (
+              <UploadCard
+                key={wallpaper.id}
+                wallpaper={wallpaper}
+              />
+            ))}
+          </div>
+          <UploadPagination
+            page={page}
+            totalPages={totalPages}
+            status={status}
+          />
+        </>
       }
     </div>
   );

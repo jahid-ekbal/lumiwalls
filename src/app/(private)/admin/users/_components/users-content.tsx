@@ -1,10 +1,9 @@
 import UsersClient from "@/components/Admin/UsersClient";
-import { auth } from "@/lib/auth";
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import type { UsersSearchParamsType } from "@/lib/zodSchema";
 import { isPrimaryAdminEmail } from "@/server/admin";
 import type { Prisma } from "@generated/prisma/client";
-import { headers } from "next/headers";
 
 const PAGE_SIZE = 12;
 
@@ -13,7 +12,7 @@ type Props = {
 };
 
 const UsersContent = async ({ params }: Props) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await requireAdminUser();
   const query = params.q.trim();
   const sortDirection = params.sort === "oldest" ? "asc" : "desc";
 

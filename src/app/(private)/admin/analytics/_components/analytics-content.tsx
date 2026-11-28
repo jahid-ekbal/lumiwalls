@@ -1,4 +1,5 @@
 import AnalyticsClient from "@/components/Admin/AnalyticsClient";
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import type { AnalyticsSearchParamsType } from "@/lib/zodSchema";
 import { buildTrend } from "../../_components/dashboard-utils";
@@ -23,6 +24,7 @@ const meanHours = (rows: { createdAt: Date; reviewedAt: Date | null }[]) => {
 };
 
 const AnalyticsContent = async ({ params }: Props) => {
+  await requireAdminUser();
   const days = Number(params.range);
   const now = new Date();
   const trendStart = new Date(now);

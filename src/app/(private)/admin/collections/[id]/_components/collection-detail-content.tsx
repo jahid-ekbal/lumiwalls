@@ -1,4 +1,5 @@
 import CollectionDetailClient from "@/components/Admin/CollectionDetailClient";
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import { notFound } from "next/navigation";
 
@@ -7,6 +8,7 @@ type Props = {
 };
 
 const CollectionDetailContent = async ({ collectionId }: Props) => {
+  await requireAdminUser();
   const collection = await prisma.collection.findUnique({
     where: { id: collectionId },
     include: {

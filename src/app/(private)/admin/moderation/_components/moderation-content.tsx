@@ -1,3 +1,4 @@
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import type { ModerationSearchParamsType } from "@/lib/zodSchema";
 import type { Prisma } from "@generated/prisma/client";
@@ -10,6 +11,7 @@ type Props = {
 };
 
 const ModerationContent = async ({ params }: Props) => {
+  await requireAdminUser();
   const query = params.q.trim();
   const sortDirection = params.sort === "oldest" ? "asc" : "desc";
 

@@ -1,5 +1,10 @@
 import type { UploadTrendPoint } from "@/components/Dashboard/UserUploadsTrendChart";
+import type { AppStatus } from "@/components/UI/StatusBadge";
 import { formatUtcDayLabel } from "@/lib/format";
+
+export type ModerationStatus = AppStatus;
+
+export { deriveWallpaperStatus as resolveModerationStatus } from "@/components/UI/StatusBadge";
 
 export const TREND_DAYS = 30;
 

@@ -98,7 +98,7 @@ const DashboardActivityFeed = async () => {
       orderBy: { createdAt: "desc" },
       take: 6,
       select: {
-        id: true,
+        wallpaperId: true,
         createdAt: true,
         wallpaper: { select: { title: true, slug: true } },
       },
@@ -120,8 +120,7 @@ const DashboardActivityFeed = async () => {
       .map((row) => ({
         id: `decision-${row.id}`,
         kind: (row.status === "APPROVED" ? "approved" : "rejected") as
-          | "approved"
-          | "rejected",
+          "approved" | "rejected",
         title: row.wallpaper.title,
         href: (row.wallpaper.isApproved && row.wallpaper.isPublic ?
           `/browse?preview=${row.wallpaper.slug}`
@@ -129,7 +128,7 @@ const DashboardActivityFeed = async () => {
         at: row.reviewedAt!,
       })),
     ...favorites.map((row) => ({
-      id: `fav-${row.id}`,
+      id: `fav-${row.wallpaperId}`,
       kind: "favorite" as const,
       title: row.wallpaper.title,
       href: `/browse?preview=${row.wallpaper.slug}` as Route,

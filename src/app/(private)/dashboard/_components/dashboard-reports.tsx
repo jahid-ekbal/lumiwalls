@@ -23,8 +23,8 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 const REPORT_STATUS_MAP: Record<string, ModerationStatus> = {
-  OPEN: "OPEN",
-  REVIEWED: "REVIEWED",
+  PENDING: "PENDING",
+  RESOLVED: "RESOLVED",
   DISMISSED: "DISMISSED",
 };
 
@@ -106,7 +106,7 @@ const DashboardReports = async () => {
                     </p>
                   </div>
                   <StatusBadge
-                    status={REPORT_STATUS_MAP[report.status] ?? "OPEN"}
+                    status={REPORT_STATUS_MAP[report.status] ?? "PENDING"}
                     className="shrink-0"
                   />
                 </li>

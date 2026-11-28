@@ -30,7 +30,7 @@ const DashboardFavorites = async () => {
     orderBy: { createdAt: "desc" },
     take: 6,
     select: {
-      id: true,
+      wallpaperId: true,
       wallpaper: {
         select: {
           id: true,
@@ -86,7 +86,7 @@ const DashboardFavorites = async () => {
               const thumbSrc = toImagePath(favorite.wallpaper.thumb400Url);
               return (
                 <Link
-                  key={favorite.id}
+                  key={favorite.wallpaperId}
                   href={`/browse?preview=${favorite.wallpaper.slug}` as Route}
                   className="bg-muted group relative block aspect-4/3 overflow-hidden rounded-xl ring-1 ring-white/5 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none">
                   {thumbSrc ?

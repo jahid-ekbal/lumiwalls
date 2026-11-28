@@ -1,4 +1,5 @@
 import CollectionsClient from "@/components/Admin/CollectionsClient";
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import type { CollectionsSearchParamsType } from "@/lib/zodSchema";
 import type { Prisma } from "@generated/prisma/client";
@@ -10,6 +11,7 @@ type Props = {
 };
 
 const CollectionsContent = async ({ params }: Props) => {
+  await requireAdminUser();
   const query = params.q.trim();
 
   const clauses: Prisma.CollectionWhereInput[] = [];

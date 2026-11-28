@@ -194,7 +194,7 @@ export async function addCollectionItem(input: unknown) {
 
   const collection = await prisma.collection.findUnique({
     where: { id: parsed.data.collectionId },
-    select: { id: true, slug: true },
+    select: { id: true, title: true, slug: true },
   });
   if (!collection) {
     return { success: false as const, error: "COLLECTION_NOT_FOUND" as const };
@@ -203,11 +203,11 @@ export async function addCollectionItem(input: unknown) {
   const wallpaper =
     (await prisma.wallpaper.findUnique({
       where: { id: parsed.data.wallpaperId },
-      select: { id: true, isApproved: true, isPublic: true },
+      select: { id: true, title: true, isApproved: true, isPublic: true },
     })) ??
     (await prisma.wallpaper.findUnique({
       where: { slug: parsed.data.wallpaperId },
-      select: { id: true, isApproved: true, isPublic: true },
+      select: { id: true, title: true, isApproved: true, isPublic: true },
     }));
   if (!wallpaper || !wallpaper.isApproved || !wallpaper.isPublic) {
     return { success: false as const, error: "NOT_AVAILABLE" as const };
@@ -241,7 +241,16 @@ export async function addCollectionItem(input: unknown) {
     },
   });
 
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "COLLECTION_ITEM_ADD",
+    targetType: "collection",
+    targetId: collection.id,
+    summary: `Added "${wallpaper.title}" to "${collection.title}"`,
+  });
+
   revalidateCollections(parsed.data.collectionId, collection.slug);
+  revalidatePath("/admin/audit");
   return { success: true as const };
 }
 
@@ -262,14 +271,35 @@ export async function removeCollectionItem(input: unknown) {
     };
   }
 
-  await prisma.collectionItem.deleteMany({
+  const existing = await prisma.collectionItem.findUnique({
     where: {
-      collectionId: parsed.data.collectionId,
-      wallpaperId: parsed.data.wallpaperId,
+      collectionId_wallpaperId: {
+        collectionId: parsed.data.collectionId,
+        wallpaperId: parsed.data.wallpaperId,
+      },
+    },
+    select: {
+      id: true,
+      collection: { select: { id: true, title: true, slug: true } },
+      wallpaper: { select: { title: true } },
     },
   });
+  if (!existing) {
+    return { success: false as const, error: "NOT_FOUND" as const };
+  }
 
-  revalidateCollections(parsed.data.collectionId);
+  await prisma.collectionItem.delete({ where: { id: existing.id } });
+
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "COLLECTION_ITEM_REMOVE",
+    targetType: "collection",
+    targetId: existing.collection.id,
+    summary: `Removed "${existing.wallpaper.title}" from "${existing.collection.title}"`,
+  });
+
+  revalidateCollections(parsed.data.collectionId, existing.collection.slug);
+  revalidatePath("/admin/audit");
   return { success: true as const };
 }
 
@@ -299,6 +329,14 @@ export async function reorderCollectionItems(input: unknown) {
     return { success: false as const, error: "NOT_FOUND" as const };
   }
 
+  const collection = await prisma.collection.findUnique({
+    where: { id: parsed.data.collectionId },
+    select: { id: true, title: true, slug: true },
+  });
+  if (!collection) {
+    return { success: false as const, error: "NOT_FOUND" as const };
+  }
+
   await prisma.$transaction(
     parsed.data.wallpaperIds.map((wallpaperId, position) =>
       prisma.collectionItem.update({
@@ -313,7 +351,17 @@ export async function reorderCollectionItems(input: unknown) {
     ),
   );
 
-  revalidateCollections(parsed.data.collectionId);
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "COLLECTION_REORDER",
+    targetType: "collection",
+    targetId: collection.id,
+    summary: `Reordered items in "${collection.title}"`,
+    metadata: { wallpaperIds: parsed.data.wallpaperIds },
+  });
+
+  revalidateCollections(parsed.data.collectionId, collection.slug);
+  revalidatePath("/admin/audit");
   return { success: true as const };
 }
 
@@ -336,23 +384,41 @@ export async function setCollectionCover(input: unknown) {
 
   const collection = await prisma.collection.findUnique({
     where: { id: parsed.data.collectionId },
-    select: { id: true, slug: true },
+    select: { id: true, title: true, slug: true },
   });
   if (!collection) {
     return { success: false as const, error: "NOT_FOUND" as const };
   }
 
-  const wallpaper = await prisma.wallpaper.findUnique({
-    where: { id: parsed.data.wallpaperId },
+  const item = await prisma.collectionItem.findUnique({
+    where: {
+      collectionId_wallpaperId: {
+        collectionId: parsed.data.collectionId,
+        wallpaperId: parsed.data.wallpaperId,
+      },
+    },
     select: {
-      isApproved: true,
-      isPublic: true,
-      thumb800Url: true,
-      thumb400Url: true,
-      originalUrl: true,
+      wallpaper: {
+        select: {
+          id: true,
+          title: true,
+          isApproved: true,
+          isPublic: true,
+          thumb800Url: true,
+          thumb400Url: true,
+          originalUrl: true,
+        },
+      },
     },
   });
-  if (!wallpaper || !wallpaper.isApproved || !wallpaper.isPublic) {
+  if (!item) {
+    return {
+      success: false as const,
+      error: "ITEM_NOT_IN_COLLECTION" as const,
+    };
+  }
+  const wallpaper = item.wallpaper;
+  if (!wallpaper.isApproved || !wallpaper.isPublic) {
     return { success: false as const, error: "NOT_AVAILABLE" as const };
   }
 
@@ -363,7 +429,16 @@ export async function setCollectionCover(input: unknown) {
     data: { coverUrl: cover },
   });
 
+  await recordAdminAuditLog({
+    actorId: authCheck.session.user.id,
+    action: "COLLECTION_COVER_UPDATE",
+    targetType: "collection",
+    targetId: collection.id,
+    summary: `Set cover of "${collection.title}" to "${wallpaper.title}"`,
+  });
+
   revalidateCollections(parsed.data.collectionId, collection.slug);
+  revalidatePath("/admin/audit");
   return { success: true as const };
 }
 

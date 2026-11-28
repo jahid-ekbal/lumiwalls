@@ -467,7 +467,7 @@ const CreatorProfilePage = async ({
                 <Link
                   key={board.id}
                   href={`/collections/${board.slug}` as Route}
-                  className="border-border/70 bg-card hover:border-foreground/30 flex h-full flex-col overflow-hidden rounded-inset border transition-colors">
+                  className="border-border/70 bg-card hover:border-foreground/30 rounded-inset flex h-full flex-col overflow-hidden border transition-colors">
                   <div className="bg-muted/40 relative h-28 w-full overflow-hidden">
                     {coverSrc ?
                       <Image
@@ -547,7 +547,7 @@ const CreatorProfilePage = async ({
                 <Pagination
                   page={currentPage}
                   totalPages={totalPages}
-                  createHref={(targetPage) =>
+                  buildHref={(targetPage: number) =>
                     `/u/${encodeURIComponent(profileHandle)}?page=${targetPage}` as Route
                   }
                 />

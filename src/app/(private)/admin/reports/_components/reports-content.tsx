@@ -1,4 +1,5 @@
 import ReportsClient from "@/components/Admin/ReportsClient";
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import type { ReportsSearchParamsType } from "@/lib/zodSchema";
 import type { Prisma } from "@generated/prisma/client";
@@ -10,6 +11,7 @@ type Props = {
 };
 
 const ReportsContent = async ({ params }: Props) => {
+  await requireAdminUser();
   const query = params.q.trim();
   const sortDirection = params.sort === "oldest" ? "asc" : "desc";
 

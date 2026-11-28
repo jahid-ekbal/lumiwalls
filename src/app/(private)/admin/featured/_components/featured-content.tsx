@@ -1,4 +1,5 @@
 import FeaturedClient from "@/components/Admin/FeaturedClient";
+import { requireAdminUser } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
 import type { FeaturedSearchParamsType } from "@/lib/zodSchema";
 import type { Prisma } from "@generated/prisma/client";
@@ -10,6 +11,7 @@ type Props = {
 };
 
 const FeaturedContent = async ({ params }: Props) => {
+  await requireAdminUser();
   const query = params.q.trim();
   const now = new Date();
 

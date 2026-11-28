@@ -201,7 +201,7 @@ const BoardDetailActions = ({
               name="isPublicToMembers"
               control={control}
               render={({ field }) => (
-                <div className="border-border/60 flex items-center justify-between gap-3 rounded-inset border p-3">
+                <div className="border-border/60 rounded-inset flex items-center justify-between gap-3 border p-3">
                   <div className="grid gap-0.5">
                     <span className="text-sm font-medium">
                       Visible to members
@@ -256,8 +256,8 @@ const BoardDetailActions = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete board?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the board "{title}". Wallpapers inside it stay in the
-              gallery.
+              This removes the board &ldquo;{title}&rdquo;. Wallpapers inside it
+              stay in the gallery.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

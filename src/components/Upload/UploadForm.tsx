@@ -62,12 +62,7 @@ const uploadFormClientSchema = z.object({
 type UploadFormClientType = z.infer<typeof uploadFormClientSchema>;
 
 type UploadStage =
-  | "idle"
-  | "initiating"
-  | "uploading"
-  | "processing"
-  | "done"
-  | "error";
+  "idle" | "initiating" | "uploading" | "processing" | "done" | "error";
 
 type UploadFormProps = {
   categories: Array<{
@@ -82,6 +77,7 @@ type UploadFormProps = {
     name: string;
     slug: string;
   }>;
+  remainingQuota: number;
 };
 
 const getAspectRatioLabel = (width: number, height: number): string => {
@@ -102,7 +98,11 @@ const STAGE_LABEL: Record<
   processing: "Generating previews and verifying image...",
 };
 
-const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
+const UploadForm = ({
+  categories,
+  tags: availableTags,
+  remainingQuota,
+}: UploadFormProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const replaceButtonRef = useRef<HTMLButtonElement>(null);
@@ -463,7 +463,8 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       handleClearFile();
       setStage("idle");
     } catch {
-      const msg = "Something unexpected happened while uploading. Please try again.";
+      const msg =
+        "Something unexpected happened while uploading. Please try again.";
       setErrorMsg(msg);
       toast.error(msg);
       setStage("error");
@@ -489,7 +490,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
 
     return (
       <div className="grid items-start gap-6 lg:grid-cols-12">
-        <div className="bg-muted/40 relative aspect-video overflow-hidden rounded-surface border lg:col-span-5">
+        <div className="bg-muted/40 rounded-surface relative aspect-video overflow-hidden border lg:col-span-5">
           {previewImage ?
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -571,8 +572,8 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
               aria-label="Upload image dropzone"
               className={
                 isDragOver ?
-                  "border-primary bg-primary/5 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-3 rounded-surface border-2 border-dashed p-8 text-center transition-colors lg:min-h-96"
-                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30 focus-visible:ring-ring/50 flex min-h-64 cursor-pointer flex-col items-center justify-center gap-3 rounded-surface border-2 border-dashed p-8 text-center transition-colors outline-none focus-visible:ring-3 lg:min-h-96"
+                  "border-primary bg-primary/5 rounded-surface flex min-h-64 cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed p-8 text-center transition-colors lg:min-h-96"
+                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30 focus-visible:ring-ring/50 rounded-surface flex min-h-64 cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed p-8 text-center transition-colors outline-none focus-visible:ring-3 lg:min-h-96"
               }>
               <div className="bg-muted rounded-full p-3.5">
                 <UploadIcon
@@ -607,8 +608,8 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
               onDrop={handleDrop}
               className={
                 isDragOver ?
-                  "bg-card ring-primary grid gap-3 overflow-hidden rounded-surface border p-3.5 ring-2"
-                : "bg-card grid gap-3 overflow-hidden rounded-surface border p-3.5"
+                  "bg-card ring-primary rounded-surface grid gap-3 overflow-hidden border p-3.5 ring-2"
+                : "bg-card rounded-surface grid gap-3 overflow-hidden border p-3.5"
               }>
               <button
                 ref={replaceButtonRef}
@@ -620,7 +621,7 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                   fileInputRef.current?.click();
                 }}
                 aria-label="Replace selected image"
-                className="relative block w-full cursor-pointer overflow-hidden rounded-inset">
+                className="rounded-inset relative block w-full cursor-pointer overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={previewUrl}
@@ -645,7 +646,8 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                     {selectedFile.name}
                   </p>
                   <p className="text-caption text-muted-foreground">
-                    {formatBytes(selectedFile.size)} &middot; {selectedFile.type}
+                    {formatBytes(selectedFile.size)} &middot;{" "}
+                    {selectedFile.type}
                     {dimensions ?
                       ` · ${dimensions.width} x ${dimensions.height}`
                     : ""}
@@ -677,7 +679,8 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
                 </div>
               </div>
               <p className="text-caption text-muted-foreground">
-                Drop a new image anywhere on this frame or click Replace to swap.
+                Drop a new image anywhere on this frame or click Replace to
+                swap.
               </p>
             </div>
           : null}
@@ -783,9 +786,11 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
       </div>
 
       {/* Honest indeterminate progress during upload and server processing */}
-      {stage === "initiating" ||
-      stage === "uploading" ||
-      stage === "processing" ?
+      {(
+        stage === "initiating" ||
+        stage === "uploading" ||
+        stage === "processing"
+      ) ?
         <div
           aria-live="polite"
           className="grid gap-2">
@@ -814,17 +819,29 @@ const UploadForm = ({ categories, tags: availableTags }: UploadFormProps) => {
         : null}
       </div>
 
+      <p className="text-caption text-muted-foreground text-center">
+        {remainingQuota > 0 ?
+          `${remainingQuota} of 5 uploads remaining this hour.`
+        : "Hourly upload limit reached. Try again in a little while."}
+      </p>
+
       <Button
         type="submit"
         className="w-full"
-        disabled={isSubmitting || !selectedFile || isBusy}>
+        disabled={
+          isSubmitting || !selectedFile || isBusy || remainingQuota <= 0
+        }>
         {isBusy ?
           <>
             <Loader2Icon
               data-icon="inline-start"
               className="animate-spin"
             />
-            {stage === "initiating" || stage === "uploading" || stage === "processing" ?
+            {(
+              stage === "initiating" ||
+              stage === "uploading" ||
+              stage === "processing"
+            ) ?
               STAGE_LABEL[stage]
             : "Uploading..."}
           </>

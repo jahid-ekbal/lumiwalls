@@ -50,4 +50,4 @@ prisma/*.db-journal
 .neon
 
 # AI Skills
-.agents
+# .agents

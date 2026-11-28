@@ -1,7 +1,5 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
-import { revalidatePath } from "next/cache";
 import { hashPasswordFunction } from "@/lib/argon2";
 import { requireAdminAction } from "@/lib/auth/session";
 import prisma from "@/lib/database/dbClient";
@@ -14,6 +12,8 @@ import {
   wallpaperVisibilitySchema,
 } from "@/lib/zodSchema";
 import { isPrimaryAdminEmail } from "@/server/admin";
+import { revalidatePath } from "next/cache";
+import { randomBytes } from "node:crypto";
 
 function generateTemporaryPassword(length = 20): string {
   const alphabet =
